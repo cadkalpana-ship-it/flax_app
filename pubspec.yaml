@@ -1,0 +1,29 @@
+name: flax_app
+description: Track availability status of Flax items by ID.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.0
+  fl_chart: ^1.2.0
+  cupertino_icons: ^1.0.6
+  excel: ^4.0.6
+  file_saver: ^0.4.0
+  pdf: ^3.11.3
+  printing: ^5.14.2
+  shared_preferences: ^2.5.5
+  image_picker: ^1.2.3
+  provider: ^6.1.5+1
+  
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
