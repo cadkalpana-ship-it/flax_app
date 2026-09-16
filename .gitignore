@@ -5,7 +5,7 @@
 *.swp
 .DS_Store
 .atom/
-.build/
+# .build/
 .buildlog/
 .history
 .svn/
@@ -30,7 +30,7 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+# /build/
 /coverage/
 
 # Symbolication related
@@ -49,3 +49,16 @@ app.*.map.json
 .metadata
 .vercel
 .env*
+build/11d39eead54f17c71c6d241c02482abe.cache.dill.track.dill
+build/b0ad9417408001559a283da718f2c93d.cache.dill.track.dill
+build/1f87a1fbe72afc46ac7d07d2c84e1d2e/_composite.stamp
+build/1f87a1fbe72afc46ac7d07d2c84e1d2e/gen_dart_plugin_registrant.stamp
+build/1f87a1fbe72afc46ac7d07d2c84e1d2e/gen_localizations.stamp
+build/4ba41e341b078c00cbaff15afa2ce825/_composite.stamp
+build/4ba41e341b078c00cbaff15afa2ce825/gen_dart_plugin_registrant.stamp
+build/4ba41e341b078c00cbaff15afa2ce825/gen_localizations.stamp
+build/flutter_assets/AssetManifest.bin
+build/flutter_assets/NOTICES
+build/flutter_assets/shaders/ink_sparkle.frag
+build/flutter_assets/shaders/stretch_effect.frag
+build/web/.last_build_id
