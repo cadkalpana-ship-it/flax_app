@@ -617,79 +617,102 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
   // ============================================================
 
   @override
-  Widget build(
-    BuildContext context,
-  ) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(
-            12,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(
-                0.03,
-              ),
-              blurRadius: 10,
-              offset: const Offset(
-                0,
-                3,
-              ),
-            ),
-          ],
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildBanner(),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(
-                  20,
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isPhone = width < 700;
+        final isDesktop = width >= 1100;
+        final outerPadding = isPhone ? 10.0 : isDesktop ? 24.0 : 16.0;
+
+        return Padding(
+          padding: EdgeInsets.all(outerPadding),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.03),
+                  blurRadius: 10,
+                  offset: const Offset(0, 3),
                 ),
-                child: _loading
-                    ? const Center(
-                        child: CircularProgressIndicator(),
-                      )
-                    : _error != null
-                        ? _buildErrorState()
-                        : Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildToolbar(),
-                              const SizedBox(
-                                height: 16,
-                              ),
-                              Expanded(
-                                child: Row(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: _buildAvailableTable(),
-                                    ),
-                                    const SizedBox(
-                                      width: 16,
-                                    ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: _buildAssignmentDetails(),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-              ),
+              ],
             ),
-          ],
-        ),
-      ),
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildBanner(),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(isPhone ? 10 : 20),
+                    child: _loading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _error != null
+                            ? _buildErrorState()
+                            : Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildToolbar(),
+                                  SizedBox(height: isPhone ? 10 : 16),
+                                  Expanded(
+                                    child: LayoutBuilder(
+                                      builder: (context, contentConstraints) {
+                                        final contentWidth =
+                                            contentConstraints.maxWidth;
+                                        final stacked = contentWidth < 900;
+
+                                        if (stacked) {
+                                          return SingleChildScrollView(
+                                            padding: EdgeInsets.only(
+                                              bottom: isPhone ? 12 : 16,
+                                            ),
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.stretch,
+                                              children: [
+                                                _buildAvailableTable(
+                                                  compactHeight: true,
+                                                ),
+                                                SizedBox(
+                                                  height: isPhone ? 10 : 16,
+                                                ),
+                                                _buildAssignmentDetails(
+                                                  compactHeight: true,
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }
+
+                                        return Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.stretch,
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: _buildAvailableTable(),
+                                            ),
+                                            const SizedBox(width: 16),
+                                            Expanded(
+                                              flex: 2,
+                                              child: _buildAssignmentDetails(),
+                                            ),
+                                          ],
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -699,25 +722,45 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
 
   Widget _buildErrorState() {
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            'Error: $_error',
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.error_outline,
+                size: 48,
+                color: Color(0xFFDC2626),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Unable to load assignment data',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                _error ?? 'Unknown error',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _loadAvailable,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
           ),
-          const SizedBox(
-            height: 12,
-          ),
-          ElevatedButton.icon(
-            onPressed: _loadAvailable,
-            icon: const Icon(
-              Icons.refresh,
-            ),
-            label: const Text(
-              'Retry',
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -727,64 +770,66 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
   // ============================================================
 
   Widget _buildBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 18,
-      ),
-      color: const Color(0xFFF5F8FF),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(
-              8,
-            ),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(
-                8,
-              ),
-              border: Border.all(
-                color: const Color(
-                  0xFFE2E8F0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isPhone = constraints.maxWidth < 560;
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhone ? 12 : 24,
+            vertical: isPhone ? 12 : 18,
+          ),
+          color: const Color(0xFFF5F8FF),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: EdgeInsets.all(isPhone ? 7 : 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFE2E8F0)),
+                ),
+                child: Icon(
+                  Icons.link,
+                  color: const Color(0xFF1D5CFF),
+                  size: isPhone ? 18 : 20,
                 ),
               ),
-            ),
-            child: const Icon(
-              Icons.link,
-              color: Color(0xFF1D5CFF),
-              size: 20,
-            ),
-          ),
-          const SizedBox(
-            width: 12,
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text(
-                'FLX Assignment – Tree Casting',
-                style: TextStyle(
-                  color: Color(0xFF0F172A),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-              SizedBox(
-                height: 2,
-              ),
-              Text(
-                'Assign available FLX to a tree for casting. '
-                '(Select FLX size, FLX name and Tree number)',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 12,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'FLX Assignment – Tree Casting',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: const Color(0xFF0F172A),
+                        fontWeight: FontWeight.bold,
+                        fontSize: isPhone ? 14 : 18,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Assign available FLX to a tree for casting. '
+                      '(Select FLX size, FLX name and Tree number)',
+                      maxLines: isPhone ? 2 : 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: isPhone ? 11 : 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -793,72 +838,78 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
   // ============================================================
 
   Widget _buildToolbar() {
-    return Container(
-      padding: const EdgeInsets.all(
-        16,
-      ),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(
-          10,
-        ),
-        border: Border.all(
-          color: const Color(
-            0xFFE2E8F0,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isPhone = width < 600;
+        final isTablet = width >= 600 && width < 1000;
+        final gap = isPhone ? 10.0 : 12.0;
+
+        return Container(
+          padding: EdgeInsets.all(isPhone ? 12 : 16),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
           ),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          Expanded(
-            child: _buildSizeDropdown(),
-          ),
-          const SizedBox(
-            width: 12,
-          ),
-          Expanded(
-            child: _buildNameDropdown(),
-          ),
-          const SizedBox(
-            width: 12,
-          ),
-          Expanded(
-            child: _buildTreeNumberField(),
-          ),
-          const SizedBox(
-            width: 12,
-          ),
-          FilledButton.icon(
-            onPressed: _canAssign ? _assign : null,
-            icon: _assigning
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
+          child: Wrap(
+            spacing: gap,
+            runSpacing: gap,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            children: [
+              SizedBox(
+                width: isPhone
+                    ? width - 24
+                    : isTablet
+                        ? (width - 12) / 2
+                        : (width - 36 - 130) / 3,
+                child: _buildSizeDropdown(),
+              ),
+              SizedBox(
+                width: isPhone
+                    ? width - 24
+                    : isTablet
+                        ? (width - 12) / 2
+                        : (width - 36 - 130) / 3,
+                child: _buildNameDropdown(),
+              ),
+              SizedBox(
+                width: isPhone
+                    ? width - 24
+                    : isTablet
+                        ? (width - 12) / 2
+                        : (width - 36 - 130) / 3,
+                child: _buildTreeNumberField(),
+              ),
+              SizedBox(
+                width: isPhone ? width - 24 : null,
+                child: FilledButton.icon(
+                  onPressed: _canAssign ? _assign : null,
+                  icon: _assigning
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.link, size: 18),
+                  label: Text(_assigning ? 'Assigning...' : 'Assign FLX'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF1D5CFF),
+                    minimumSize: Size(isPhone ? width - 24 : 130, 48),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 18,
+                      vertical: 14,
                     ),
-                  )
-                : const Icon(
-                    Icons.link,
-                    size: 18,
                   ),
-            label: Text(
-              _assigning ? 'Assigning...' : 'Assign FLX',
-            ),
-            style: FilledButton.styleFrom(
-              backgroundColor: const Color(
-                0xFF1D5CFF,
+                ),
               ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 16,
-              ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -1052,115 +1103,370 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
   // AVAILABLE FLX TABLE
   // ============================================================
 
-  Widget _buildAvailableTable() {
+  List<Flax> get _filteredTableRows {
+    final query = _tableSearchController.text.trim().toLowerCase();
+    if (query.isEmpty) return _tableRows;
+
+    return _tableRows.where((flax) {
+      return flax.flaxNo.toLowerCase().contains(query) ||
+          flax.flaxSize.toLowerCase().contains(query);
+    }).toList();
+  }
+
+  Widget _buildAvailableTable({bool compactHeight = false}) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(
-          10,
-        ),
-        border: Border.all(
-          color: const Color(
-            0xFFE2E8F0,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 14,
+            offset: Offset(0, 4),
           ),
-        ),
+        ],
       ),
-      padding: const EdgeInsets.all(
-        16,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 560;
+          final filteredCount = _filteredTableRows.length;
+
+          return Padding(
+            padding: EdgeInsets.all(compact ? 12 : 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(
+                        Icons.inventory_2_outlined,
+                        size: 19,
+                        color: Color(0xFF1D5CFF),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Available FLX',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                              color: Color(0xFF0F172A),
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$filteredCount item${filteredCount == 1 ? '' : 's'} available for assignment',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Color(0xFF64748B),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!compact) ...[
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 250,
+                        child: _buildTableSearchField(),
+                      ),
+                    ],
+                  ],
+                ),
+                if (compact) ...[
+                  const SizedBox(height: 12),
+                  _buildTableSearchField(),
+                ],
+                const SizedBox(height: 14),
+                if (compactHeight)
+                  SizedBox(
+                    height: filteredCount == 0
+                        ? 150
+                        : (compact ? (filteredCount * 64.0).clamp(64.0, 260.0) : 190.0),
+                    child: filteredCount == 0
+                        ? _buildEmptyAvailableState()
+                        : compact
+                            ? ListView.separated(
+                                padding: EdgeInsets.zero,
+                                itemCount: filteredCount,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  return _buildMobileAvailableCard(
+                                    _filteredTableRows[index],
+                                  );
+                                },
+                              )
+                            : _buildDesktopAvailableTable(),
+                  )
+                else
+                  Expanded(
+                    child: filteredCount == 0
+                        ? _buildEmptyAvailableState()
+                        : compact
+                            ? ListView.separated(
+                                padding: EdgeInsets.zero,
+                                itemCount: filteredCount,
+                                separatorBuilder: (_, __) =>
+                                    const SizedBox(height: 8),
+                                itemBuilder: (context, index) {
+                                  return _buildMobileAvailableCard(
+                                    _filteredTableRows[index],
+                                  );
+                                },
+                              )
+                            : _buildDesktopAvailableTable(),
+                  ),
+              ],
+            ),
+          );
+        },
       ),
+    );
+  }
+
+  Widget _buildEmptyAvailableState() {
+    return Center(
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
+          Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: const Icon(
+              Icons.inventory_2_outlined,
+              color: Color(0xFF94A3B8),
+              size: 25,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'No FLX found',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: Color(0xFF334155),
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Try another search or size filter.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              color: Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileAvailableCard(Flax flax) {
+    final isSelected = flax.flaxNo == _selectedFlaxNo;
+
+    return Material(
+      color: isSelected ? const Color(0xFFEFF6FF) : const Color(0xFFF8FAFC),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _selectRowIntoForm(flax),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 11, 8, 11),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF93C5FD)
+                  : const Color(0xFFE2E8F0),
+            ),
+          ),
+          child: Row(
             children: [
-              const Icon(
-                Icons.storage,
-                size: 16,
-                color: Color(0xFF1D5CFF),
-              ),
-              const SizedBox(
-                width: 8,
-              ),
-              const Text(
-                'Available FLX',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? const Color(0xFFDCEBFF)
+                      : Colors.white,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isSelected ? Icons.check : Icons.inventory_2_outlined,
+                  size: 18,
+                  color: const Color(0xFF1D5CFF),
                 ),
               ),
-              const Spacer(),
-              SizedBox(
-                width: 220,
-                child: TextField(
-                  controller: _tableSearchController,
-                  onChanged: (_) => setState(
-                    () {},
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Search FLX Name...',
-                    prefixIcon: const Icon(
-                      Icons.search,
-                      size: 16,
-                      color: Colors.grey,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      vertical: 8,
-                      horizontal: 8,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        8,
-                      ),
-                      borderSide: const BorderSide(
-                        color: Color(
-                          0xFFE2E8F0,
-                        ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      flax.flaxNo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: Color(0xFF0F172A),
                       ),
                     ),
-                  ),
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        _infoChip(Icons.straighten_outlined, flax.flaxSize),
+                        _infoChip(Icons.account_tree_outlined, 'Unassigned'),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: 'Select this FLX',
+                onPressed: () => _selectRowIntoForm(flax),
+                icon: Icon(
+                  isSelected
+                      ? Icons.check_circle
+                      : Icons.arrow_circle_right_outlined,
+                  color: const Color(0xFF1D5CFF),
+                  size: 24,
                 ),
               ),
             ],
           ),
-          const SizedBox(
-            height: 12,
-          ),
-          _buildTableHeaderRow(),
-          const Divider(
-            height: 1,
-          ),
-          Expanded(
-            child: _tableRows.isEmpty
-                ? const Center(
-                    child: Text(
-                      'No available flax',
-                      style: TextStyle(
-                        color: Colors.grey,
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: _tableRows.length,
-                    separatorBuilder: (
-                      context,
-                      index,
-                    ) =>
-                        const Divider(
-                      height: 1,
-                    ),
-                    itemBuilder: (
-                      context,
-                      index,
-                    ) =>
-                        _buildTableDataRow(
-                      _tableRows[index],
-                    ),
-                  ),
+        ),
+      ),
+    );
+  }
+
+  Widget _infoChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: const Color(0xFF64748B)),
+          const SizedBox(width: 4),
+          Text(
+            text,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF475569),
+            ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopAvailableTable() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE2E8F0)),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              color: const Color(0xFFF8FAFC),
+              child: _buildTableHeaderRow(),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: ListView.separated(
+                padding: EdgeInsets.zero,
+                itemCount: _filteredTableRows.length,
+                separatorBuilder: (_, __) => const Divider(height: 1),
+                itemBuilder: (context, index) =>
+                    _buildTableDataRow(_filteredTableRows[index]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTableSearchField() {
+    final hasSearch = _tableSearchController.text.trim().isNotEmpty;
+
+    return TextField(
+      controller: _tableSearchController,
+      onChanged: (_) => setState(() {}),
+      decoration: InputDecoration(
+        hintText: 'Search FLX name...',
+        prefixIcon: const Icon(
+          Icons.search,
+          size: 18,
+          color: Color(0xFF64748B),
+        ),
+        suffixIcon: hasSearch
+            ? IconButton(
+                tooltip: 'Clear search',
+                icon: const Icon(Icons.close, size: 17),
+                onPressed: () {
+                  _tableSearchController.clear();
+                  setState(() {});
+                },
+              )
+            : null,
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 12,
+          horizontal: 10,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(
+            color: Color(0xFF93C5FD),
+            width: 1.3,
+          ),
+        ),
       ),
     );
   }
@@ -1174,95 +1480,102 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
 
   Widget _buildTableHeaderRow() {
     const headers = [
-      'FLX Name',
-      'FLX Size',
-      'Tree Number',
-      'Action',
+      'FLX NAME',
+      'FLX SIZE',
+      'TREE',
+      'ACTION',
     ];
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        vertical: 8,
-      ),
-      child: Row(
-        children: List.generate(
-          headers.length,
-          (i) {
-            return Expanded(
-              flex: _tableFlexes[i],
-              child: Text(
-                headers[i],
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Color(0xFF475569),
-                ),
-              ),
-            );
-          },
+    return Row(
+      children: List.generate(
+        headers.length,
+        (i) => Expanded(
+          flex: _tableFlexes[i],
+          child: Text(
+            headers[i],
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 10,
+              letterSpacing: .4,
+              color: Color(0xFF64748B),
+            ),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildTableDataRow(
-    Flax flax,
-  ) {
+  Widget _buildTableDataRow(Flax flax) {
     final isSelected = flax.flaxNo == _selectedFlaxNo;
 
-    return Container(
-      color: isSelected ? const Color(0xFFEFF6FF) : null,
-      padding: const EdgeInsets.symmetric(
-        vertical: 8,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            flex: _tableFlexes[0],
-            child: Text(
-              flax.flaxNo,
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: _tableFlexes[1],
-            child: Text(
-              flax.flaxSize,
-              style: const TextStyle(
-                fontSize: 13,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: _tableFlexes[2],
-            child: const Text(
-              '-',
-              style: TextStyle(
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: _tableFlexes[3],
-            child: IconButton(
-              onPressed: () => _selectRowIntoForm(
-                flax,
-              ),
-              icon: const Icon(
-                Icons.arrow_circle_right_outlined,
-                size: 20,
-                color: Color(
-                  0xFF1D5CFF,
+    return Material(
+      color: isSelected ? const Color(0xFFEFF6FF) : Colors.white,
+      child: InkWell(
+        onTap: () => _selectRowIntoForm(flax),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            children: [
+              Expanded(
+                flex: _tableFlexes[0],
+                child: Text(
+                  flax.flaxNo,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
-              tooltip: 'Select this FLX',
-              visualDensity: VisualDensity.compact,
-            ),
+              Expanded(
+                flex: _tableFlexes[1],
+                child: Text(
+                  flax.flaxSize,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF475569),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: _tableFlexes[2],
+                child: const Text(
+                  'Unassigned',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+              ),
+              Expanded(
+                flex: _tableFlexes[3],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    onPressed: () => _selectRowIntoForm(flax),
+                    icon: Icon(
+                      isSelected
+                          ? Icons.check_circle
+                          : Icons.arrow_circle_right_outlined,
+                      size: 21,
+                      color: const Color(0xFF1D5CFF),
+                    ),
+                    tooltip: 'Select this FLX',
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1271,98 +1584,305 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
   // ASSIGNMENT DETAILS
   // ============================================================
 
-  Widget _buildAssignmentDetails() {
+  Widget _buildAssignmentDetails({bool compactHeight = false}) {
     final flax = _selectedFlax;
-
     final treeNo = _treeNoController.text.trim();
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
-        borderRadius: BorderRadius.circular(
-          10,
-        ),
-        border: Border.all(
-          color: const Color(
-            0xFFE2E8F0,
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 14,
+            offset: Offset(0, 4),
           ),
-        ),
+        ],
       ),
-      padding: const EdgeInsets.all(
-        16,
-      ),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
-                Icons.link,
-                size: 16,
-                color: Color(0xFF1D5CFF),
-              ),
-              SizedBox(
-                width: 8,
-              ),
-              Text(
-                'Assignment Details',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF0FDF4),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.link,
+                  size: 18,
+                  color: Color(0xFF16A34A),
                 ),
               ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Assignment Details',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: Color(0xFF0F172A),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Current FLX → Tree connection',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (flax != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFECFDF5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    'SELECTED',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: .5,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(
-            height: 16,
-          ),
-          if (flax != null) ...[
-            _detailRow(
-              'FLX Size',
-              flax.flaxSize,
+          const SizedBox(height: 14),
+          if (flax != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [
+                    Color(0xFFF8FAFC),
+                    Color(0xFFEFF6FF),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFDCE6F4)),
+              ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final compact = constraints.maxWidth < 390;
+
+                  final flaxBox = _assignmentEntity(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'FLX',
+                    value: flax.flaxNo,
+                    subtitle: flax.flaxSize,
+                  );
+                  final arrow = Icon(
+                    compact ? Icons.keyboard_arrow_down : Icons.arrow_forward,
+                    color: const Color(0xFF1D5CFF),
+                    size: 22,
+                  );
+                  final treeBox = _assignmentEntity(
+                    icon: Icons.account_tree_outlined,
+                    label: 'TREE',
+                    value: treeNo.isEmpty ? 'Not selected' : treeNo,
+                    subtitle: treeNo.isEmpty
+                        ? 'Choose a tree above'
+                        : 'Ready for assignment',
+                  );
+
+                  if (compact) {
+                    return Column(
+                      children: [
+                        flaxBox,
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 4),
+                          child: Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Color(0xFF1D5CFF),
+                            size: 20,
+                          ),
+                        ),
+                        treeBox,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: flaxBox),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 10),
+                        child: arrow,
+                      ),
+                      Expanded(child: treeBox),
+                    ],
+                  );
+                },
+              ),
+            )
+          else
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 16,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: const Row(
+                children: [
+                  Icon(
+                    Icons.touch_app_outlined,
+                    color: Color(0xFF94A3B8),
+                    size: 21,
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Select a FLX above to view its assignment details.',
+                      style: TextStyle(
+                        color: Color(0xFF64748B),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-            const Divider(
-              height: 20,
-            ),
-            _detailRow(
-              'FLX Name',
-              flax.flaxNo,
-            ),
-            const Divider(
-              height: 20,
-            ),
-            _detailRow(
-              'Tree Number',
-              treeNo.isEmpty ? '-' : treeNo,
-            ),
-            const SizedBox(
-              height: 20,
-            ),
-          ],
-          const Row(
+          const SizedBox(height: 18),
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.history,
-                size: 15,
+                size: 17,
                 color: Color(0xFF1D5CFF),
               ),
-              SizedBox(
-                width: 6,
-              ),
-              Text(
-                'Recently Assigned',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+              const SizedBox(width: 7),
+              const Expanded(
+                child: Text(
+                  'Recently Assigned',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                    color: Color(0xFF0F172A),
+                  ),
                 ),
               ),
+              if (_recentAssignments.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 7,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${_recentAssignments.length}',
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF1D5CFF),
+                    ),
+                  ),
+                ),
             ],
           ),
-          const SizedBox(
-            height: 8,
+          const SizedBox(height: 8),
+          if (compactHeight)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 210),
+              child: _buildHistoryList(shrinkWrap: true),
+            )
+          else
+            Expanded(child: _buildHistoryList()),
+        ],
+      ),
+    );
+  }
+
+  Widget _assignmentEntity({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String subtitle,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEFF6FF),
+              borderRadius: BorderRadius.circular(9),
+            ),
+            child: Icon(icon, size: 16, color: const Color(0xFF1D5CFF)),
           ),
+          const SizedBox(width: 9),
           Expanded(
-            child: _buildHistoryList(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: .5,
+                    color: Color(0xFF94A3B8),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF0F172A),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF64748B),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
@@ -1373,12 +1893,10 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
   // HISTORY
   // ============================================================
 
-  Widget _buildHistoryList() {
+  Widget _buildHistoryList({bool shrinkWrap = false}) {
     if (_loadingHistory) {
       return const Center(
-        child: CircularProgressIndicator(
-          strokeWidth: 2,
-        ),
+        child: CircularProgressIndicator(strokeWidth: 2),
       );
     }
 
@@ -1386,109 +1904,174 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
       return const Center(
         child: Text(
           'No assignments yet',
-          style: TextStyle(
-            color: Colors.grey,
-            fontSize: 12,
-          ),
+          style: TextStyle(color: Colors.grey, fontSize: 12),
         ),
       );
     }
 
-    return ListView.separated(
-      itemCount: _recentAssignments.length,
-      separatorBuilder: (context, index) => const Divider(
-        height: 1,
-      ),
-      itemBuilder: (context, index) {
-        final entry = _recentAssignments[index];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 430;
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            vertical: 8,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: RichText(
-                  overflow: TextOverflow.ellipsis,
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: Color(
-                        0xFF0F172A,
-                      ),
-                    ),
-                    children: [
-                      TextSpan(
-                        text: entry.flaxNo,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const TextSpan(
-                        text: '  →  ',
-                        style: TextStyle(
-                          color: Color(
-                            0xFF1D5CFF,
+        return ListView.separated(
+          shrinkWrap: shrinkWrap,
+          physics: shrinkWrap
+              ? const NeverScrollableScrollPhysics()
+              : null,
+          itemCount: _recentAssignments.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final entry = _recentAssignments[index];
+
+            if (compact) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 9),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: RichText(
+                            overflow: TextOverflow.ellipsis,
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                color: Color(0xFF0F172A),
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: entry.flaxNo,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const TextSpan(
+                                  text: '  →  ',
+                                  style: TextStyle(
+                                    color: Color(0xFF1D5CFF),
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: entry.treeNo,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                      TextSpan(
-                        text: entry.treeNo,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
+                        if (entry.isActive)
+                          IconButton(
+                            tooltip: 'Remove Assignment',
+                            visualDensity: VisualDensity.compact,
+                            icon: const Icon(
+                              Icons.link_off,
+                              size: 18,
+                              color: Color(0xFFDC2626),
+                            ),
+                            onPressed: () => _removeAssignment(
+                              entry.flaxNo,
+                              entry.treeNo,
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        _historyStatusChip(entry.status),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            entry.timeDisplay,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 10.5,
+                              color: Colors.grey,
+                            ),
+                          ),
                         ),
+                      ],
+                    ),
+                  ],
+                ),
+              );
+            }
+
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: RichText(
+                      overflow: TextOverflow.ellipsis,
+                      text: TextSpan(
+                        style: const TextStyle(
+                          fontSize: 12.5,
+                          color: Color(0xFF0F172A),
+                        ),
+                        children: [
+                          TextSpan(
+                            text: entry.flaxNo,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                          const TextSpan(
+                            text: '  →  ',
+                            style: TextStyle(color: Color(0xFF1D5CFF)),
+                          ),
+                          TextSpan(
+                            text: entry.treeNo,
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _historyStatusChip(entry.status),
-              const SizedBox(
-                width: 8,
-              ),
-              Text(
-                entry.timeDisplay,
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  color: Colors.grey,
-                ),
-              ),
-              const SizedBox(
-                width: 4,
-              ),
-              // Only an ACTIVE (still "Assigned") entry can be removed.
-              // Released/Removed entries are history — no action on them.
-              if (entry.isActive)
-                IconButton(
-                  tooltip: 'Remove Assignment',
-                  visualDensity: VisualDensity.compact,
-                  icon: const Icon(
-                    Icons.link_off,
-                    size: 18,
-                    color: Color(
-                      0xFFDC2626,
                     ),
                   ),
-                  onPressed: () {
-                    _removeAssignment(
-                      entry.flaxNo,
-                      entry.treeNo,
-                    );
-                  },
-                )
-              else
-                const SizedBox(
-                  width: 40,
-                  height: 32,
-                ),
-            ],
-          ),
+                  const SizedBox(width: 8),
+                  _historyStatusChip(entry.status),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    flex: 0,
+                    child: Text(
+                      entry.timeDisplay,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  if (entry.isActive)
+                    IconButton(
+                      tooltip: 'Remove Assignment',
+                      visualDensity: VisualDensity.compact,
+                      icon: const Icon(
+                        Icons.link_off,
+                        size: 18,
+                        color: Color(0xFFDC2626),
+                      ),
+                      onPressed: () => _removeAssignment(
+                        entry.flaxNo,
+                        entry.treeNo,
+                      ),
+                    )
+                  else
+                    const SizedBox(width: 40, height: 32),
+                ],
+              ),
+            );
+          },
         );
       },
     );
   }
+
+
 
   // ============================================================
   // HISTORY STATUS CHIP
@@ -1544,24 +2127,65 @@ class FlaxAssignmentState extends State<FlaxAssignment> {
     String label,
     String value,
   ) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            color: Colors.grey,
-          ),
-        ),
-        Text(
-          value,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 300;
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.end,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
+

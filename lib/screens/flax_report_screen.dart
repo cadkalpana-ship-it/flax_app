@@ -1,16 +1,21 @@
+import 'dart:typed_data';
 
 import 'package:excel/excel.dart' hide Border;
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
-import '../services/api_service.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
+import '../services/api_service.dart';
+
 class FlaxReportScreen extends StatefulWidget {
   final String userName;
-  const FlaxReportScreen({super.key, required this.userName});
+
+  const FlaxReportScreen({
+    super.key,
+    required this.userName,
+  });
 
   @override
   State<FlaxReportScreen> createState() => FlaxReportScreenState();
@@ -28,13 +33,6 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   DateTime? _startDate;
   DateTime? _endDate;
 
-  // Assignment status filter.
-  //
-  // Supported values:
-  // all
-  // assigned
-  // released
-  // removed
   String _statusFilter = 'all';
 
   bool _loading = false;
@@ -55,12 +53,10 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
       return [];
     }
 
-    // No status filtering.
     if (_statusFilter == 'all') {
       return value;
     }
 
-    // Filter report records by assignment status.
     return value.where((item) {
       if (item is! Map) {
         return false;
@@ -87,93 +83,18 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     return {};
   }
 
+  // ============================================================
+  // INIT
+  // ============================================================
+
   @override
   void initState() {
     super.initState();
-
     _loadReport();
   }
 
   Future<void> refreshData() async {
-    await _refreshCurrentPage();
-  }
-
-  // ============================================================
-  // REPORT FILTER — REAL BACKEND QUERY PARAMS
-  // ============================================================
-
-  Future<void> _refreshCurrentPage() async {
-    if (_period == 'selected') {
-      if (_startDate == null || _endDate == null) {
-        setState(() {
-          _error = 'Please select both start and end dates.';
-        });
-        return;
-      }
-    }
-
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-
-    try {
-      final params = <String, String>{
-        'period': _period,
-      };
-
-      if (_period == 'selected') {
-        String formatDate(DateTime date) {
-          final month = date.month.toString().padLeft(2, '0');
-          final day = date.day.toString().padLeft(2, '0');
-
-          return '${date.year}-$month-$day';
-        }
-
-        params['start_date'] = formatDate(_startDate!);
-        params['end_date'] = formatDate(_endDate!);
-      }
-
-      final query = params.entries
-          .map(
-            (e) =>
-                '${Uri.encodeQueryComponent(e.key)}='
-                '${Uri.encodeQueryComponent(e.value)}',
-          )
-          .join('&');
-
-      debugPrint(
-        'Loading report: '
-        '${ApiService.baseUrl}/reports/flax-assignment/?$query',
-      );
-
-      final result = await _api.fetchFlaxAssignmentReport(
-        period: _period,
-        startDate: _startDate,
-        endDate: _endDate,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _report = result;
-        _loading = false;
-      });
-
-      debugPrint('Report loaded successfully.');
-      debugPrint('Results after status filter: ${_results.length}');
-      debugPrint('Summary: $_summary');
-      debugPrint('Status filter: $_statusFilter');
-    } catch (e) {
-      if (!mounted) return;
-
-      setState(() {
-        _loading = false;
-        _error = e.toString();
-      });
-
-      debugPrint('Report loading error: $e');
-    }
+    await _loadReport();
   }
 
   // ============================================================
@@ -188,6 +109,13 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
         });
         return;
       }
+
+      if (_endDate!.isBefore(_startDate!)) {
+        setState(() {
+          _error = 'End date cannot be before start date.';
+        });
+        return;
+      }
     }
 
     setState(() {
@@ -196,6 +124,18 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     });
 
     try {
+      debugPrint(
+        'Loading Flax Assignment Report',
+      );
+
+      debugPrint(
+        'Period: $_period',
+      );
+
+      debugPrint(
+        'Status: $_statusFilter',
+      );
+
       final result = await _api.fetchFlaxAssignmentReport(
         period: _period,
         startDate: _startDate,
@@ -209,23 +149,37 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
         _loading = false;
       });
 
-      debugPrint('Report loaded successfully.');
-      debugPrint('Results: ${_results.length}');
-      debugPrint('Status filter: $_statusFilter');
-    } catch (e) {
+      debugPrint(
+        'Report loaded successfully.',
+      );
+
+      debugPrint(
+        'Results: ${_results.length}',
+      );
+
+      debugPrint(
+        'Summary: $_summary',
+      );
+    } catch (e, stackTrace) {
+      debugPrint(
+        'REPORT ERROR: $e',
+      );
+
+      debugPrint(
+        stackTrace.toString(),
+      );
+
       if (!mounted) return;
 
       setState(() {
         _loading = false;
         _error = e.toString();
       });
-
-      debugPrint('Report loading error: $e');
     }
   }
 
   // ============================================================
-  // DATE PICKER
+  // DATE PICKERS
   // ============================================================
 
   Future<void> _pickStartDate() async {
@@ -243,7 +197,8 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     setState(() {
       _startDate = picked;
 
-      if (_endDate != null && _endDate!.isBefore(picked)) {
+      if (_endDate != null &&
+          _endDate!.isBefore(picked)) {
         _endDate = picked;
       }
     });
@@ -267,7 +222,7 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   // ============================================================
-  // XLSX DOWNLOAD
+  // EXCEL EXPORT
   // ============================================================
 
   Future<void> _downloadExcel() async {
@@ -284,86 +239,38 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     });
 
     try {
-      debugPrint('========== XLSX EXPORT ==========');
-      debugPrint('Results: ${_results.length}');
-      debugPrint('Summary: $_summary');
-      debugPrint('Status filter: $_statusFilter');
+      final excel = Excel.createExcel();
 
-      final Excel excel = Excel.createExcel();
-
-      // Use the default Sheet1 as the Summary sheet.
       excel.rename(
         'Sheet1',
         'Summary',
       );
 
-      final Sheet summarySheet = excel['Summary'];
+      final summarySheet = excel['Summary'];
 
-      final Sheet detailsSheet = excel['Assignment Details'];
+      final detailsSheet =
+          excel['Assignment Details'];
 
       _buildSummarySheet(summarySheet);
       _buildDetailsSheet(detailsSheet);
 
-      final bool defaultSheetSet = excel.setDefaultSheet(
-        'Summary',
-      );
+      excel.setDefaultSheet('Summary');
 
-      debugPrint(
-        'Default Summary sheet set: $defaultSheetSet',
-      );
+      final generatedBytes = excel.save();
 
-      debugPrint(
-        'Workbook sheets: ${excel.sheets.keys.toList()}',
-      );
-
-      debugPrint(
-        'Summary rows: ${summarySheet.maxRows}',
-      );
-
-      debugPrint(
-        'Summary columns: ${summarySheet.maxColumns}',
-      );
-
-      debugPrint(
-        'Details rows: ${detailsSheet.maxRows}',
-      );
-
-      debugPrint(
-        'Details columns: ${detailsSheet.maxColumns}',
-      );
-
-      if (summarySheet.maxRows == 0) {
-        throw Exception(
-          'Summary sheet was not populated.',
-        );
-      }
-
-      if (detailsSheet.maxRows <= 1) {
-        throw Exception(
-          'Assignment Details sheet was not populated.',
-        );
-      }
-
-      final List<int>? generatedBytes = excel.save();
-
-      if (generatedBytes == null || generatedBytes.isEmpty) {
+      if (generatedBytes == null ||
+          generatedBytes.isEmpty) {
         throw Exception(
           'Excel file could not be generated.',
         );
       }
 
-      debugPrint(
-        'Generated XLSX bytes: ${generatedBytes.length}',
-      );
-
-      final Uint8List bytes = Uint8List.fromList(
+      final bytes = Uint8List.fromList(
         generatedBytes,
       );
 
-      final fileName = _buildFileName();
-
       await FileSaver.instance.saveAs(
-        name: fileName,
+        name: _buildFileName(),
         bytes: bytes,
         fileExtension: 'xlsx',
         mimeType: MimeType.microsoftExcel,
@@ -399,7 +306,7 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   // ============================================================
-  // PDF DOWNLOAD
+  // PDF EXPORT
   // ============================================================
 
   Future<void> _downloadPdf() async {
@@ -416,54 +323,52 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     });
 
     try {
-      debugPrint('========== PDF EXPORT ==========');
-      debugPrint('Results: ${_results.length}');
-      debugPrint('Summary: $_summary');
-      debugPrint('Status filter: $_statusFilter');
-
       final pdf = pw.Document();
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // SUMMARY PAGE
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           margin: const pw.EdgeInsets.all(28),
           footer: (context) {
-      return pw.Container(
-        margin: const pw.EdgeInsets.only(top: 8),
-        padding: const pw.EdgeInsets.only(top: 5),
-        decoration: const pw.BoxDecoration(
-          border: pw.Border(
-            top: pw.BorderSide(
-              width: 0.5,
-              color: PdfColors.grey400,
-            ),
-          ),
-        ),
-        child: pw.Row(
-          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-          children: [
-            pw.Text(
-              'Downloaded by: ${widget.userName.isEmpty ? 'User' : widget.userName}',
-              style: const pw.TextStyle(
-                fontSize: 8,
-                color: PdfColors.grey700,
+            return pw.Container(
+              margin: const pw.EdgeInsets.only(top: 8),
+              padding: const pw.EdgeInsets.only(top: 5),
+              decoration: const pw.BoxDecoration(
+                border: pw.Border(
+                  top: pw.BorderSide(
+                    width: 0.5,
+                    color: PdfColors.grey400,
+                  ),
+                ),
               ),
-            ),
-            pw.Text(
-              'Page ${context.pageNumber} of ${context.pagesCount}',
-              style: const pw.TextStyle(
-                fontSize: 8,
-                color: PdfColors.grey700,
+              child: pw.Row(
+                mainAxisAlignment:
+                    pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text(
+                    'Downloaded by: '
+                    '${widget.userName.isEmpty ? 'User' : widget.userName}',
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                  pw.Text(
+                    'Page ${context.pageNumber} '
+                    'of ${context.pagesCount}',
+                    style: const pw.TextStyle(
+                      fontSize: 8,
+                      color: PdfColors.grey700,
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
-        ),
-      );
-    },
+            );
+          },
           build: (context) {
             return [
               pw.Text(
@@ -500,15 +405,21 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
                   ),
                   _pdfInfoRow(
                     'Start Date',
-                    _displayDate(_report?['start_date']),
+                    _displayDate(
+                      _report?['start_date'],
+                    ),
                   ),
                   _pdfInfoRow(
                     'End Date',
-                    _displayDate(_report?['end_date']),
+                    _displayDate(
+                      _report?['end_date'],
+                    ),
                   ),
                   _pdfInfoRow(
                     'Generated On',
-                    _displayDateTime(DateTime.now()),
+                    _displayDateTime(
+                      DateTime.now(),
+                    ),
                   ),
                 ],
               ),
@@ -569,7 +480,8 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
                   _pdfSummaryRow(
                     'Average Assignment Days',
                     _double(
-                      _summary['average_assignment_days'],
+                      _summary[
+                          'average_assignment_days'],
                     ).toStringAsFixed(2),
                   ),
                 ],
@@ -579,9 +491,9 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
         ),
       );
 
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
       // DETAILS
-      // ----------------------------------------------------------
+      // --------------------------------------------------------
 
       final headers = [
         '#',
@@ -597,8 +509,13 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
 
       final data = <List<String>>[];
 
-      for (int index = 0; index < _results.length; index++) {
-        final item = Map<String, dynamic>.from(
+      for (
+        int index = 0;
+        index < _results.length;
+        index++
+      ) {
+        final item =
+            Map<String, dynamic>.from(
           _results[index] as Map,
         );
 
@@ -659,17 +576,20 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
                   fontSize: 8,
                   fontWeight: pw.FontWeight.bold,
                 ),
-                headerDecoration: const pw.BoxDecoration(
+                headerDecoration:
+                    const pw.BoxDecoration(
                   color: PdfColors.grey200,
                 ),
                 cellStyle: const pw.TextStyle(
                   fontSize: 7,
                 ),
-                cellPadding: const pw.EdgeInsets.symmetric(
+                cellPadding:
+                    const pw.EdgeInsets.symmetric(
                   horizontal: 4,
                   vertical: 5,
                 ),
-                cellAlignment: pw.Alignment.centerLeft,
+                cellAlignment:
+                    pw.Alignment.centerLeft,
                 columnWidths: const {
                   0: pw.FixedColumnWidth(25),
                   1: pw.FixedColumnWidth(60),
@@ -689,15 +609,9 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
 
       final bytes = await pdf.save();
 
-      debugPrint(
-        'Generated PDF bytes: ${bytes.length}',
-      );
-
-      final fileName = '${_buildFileName()}.pdf';
-
       await Printing.sharePdf(
         bytes: bytes,
-        filename: fileName,
+        filename: '${_buildFileName()}.pdf',
       );
 
       if (!mounted) return;
@@ -736,13 +650,15 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   String _buildFileName() {
     final now = DateTime.now();
 
-    String two(int value) {
-      return value.toString().padLeft(2, '0');
-    }
+    String two(int value) =>
+        value.toString().padLeft(2, '0');
 
     final timestamp =
-        '${now.year}${two(now.month)}${two(now.day)}_'
-        '${two(now.hour)}${two(now.minute)}';
+        '${now.year}'
+        '${two(now.month)}'
+        '${two(now.day)}_'
+        '${two(now.hour)}'
+        '${two(now.minute)}';
 
     final statusPart =
         _statusFilter == 'all'
@@ -750,17 +666,20 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
             : '_${_statusFilter[0].toUpperCase()}'
                 '${_statusFilter.substring(1)}';
 
-    return 'Flax_Assignment_Report$statusPart'
+    return 'Flax_Assignment_Report'
+        '$statusPart'
         '_$timestamp';
   }
 
   // ============================================================
-  // SUMMARY SHEET
+  // EXCEL SUMMARY
   // ============================================================
 
   void _buildSummarySheet(Sheet sheet) {
     sheet.appendRow([
-      TextCellValue('FLAX ASSIGNMENT REPORT'),
+      TextCellValue(
+        'FLAX ASSIGNMENT REPORT',
+      ),
     ]);
 
     sheet.appendRow([
@@ -776,14 +695,18 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     sheet.appendRow([
       TextCellValue('Start Date'),
       TextCellValue(
-        _displayDate(_report?['start_date']),
+        _displayDate(
+          _report?['start_date'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
       TextCellValue('End Date'),
       TextCellValue(
-        _displayDate(_report?['end_date']),
+        _displayDate(
+          _report?['end_date'],
+        ),
       ),
     ]);
 
@@ -796,50 +719,65 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     sheet.appendRow([
       TextCellValue('Total Assignments'),
       IntCellValue(
-        _number(_summary['total_assignments']),
+        _number(
+          _summary['total_assignments'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
       TextCellValue('Released'),
       IntCellValue(
-        _number(_summary['released']),
+        _number(
+          _summary['released'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
       TextCellValue('Currently Assigned'),
       IntCellValue(
-        _number(_summary['currently_assigned']),
+        _number(
+          _summary['currently_assigned'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
       TextCellValue('Removed'),
       IntCellValue(
-        _number(_summary['removed']),
+        _number(
+          _summary['removed'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
       TextCellValue('Unique Flaxes'),
       IntCellValue(
-        _number(_summary['unique_flaxes']),
+        _number(
+          _summary['unique_flaxes'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
       TextCellValue('Unique Trees'),
       IntCellValue(
-        _number(_summary['unique_trees']),
+        _number(
+          _summary['unique_trees'],
+        ),
       ),
     ]);
 
     sheet.appendRow([
-      TextCellValue('Average Assignment Days'),
+      TextCellValue(
+        'Average Assignment Days',
+      ),
       DoubleCellValue(
         _double(
-          _summary['average_assignment_days'],
+          _summary[
+              'average_assignment_days'],
         ),
       ),
     ]);
@@ -848,21 +786,21 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
 
     sheet.appendRow([
       TextCellValue('Displayed Records'),
-      IntCellValue(
-        _results.length,
-      ),
+      IntCellValue(_results.length),
     ]);
 
     sheet.appendRow([
       TextCellValue('Generated On'),
       TextCellValue(
-        _displayDateTime(DateTime.now()),
+        _displayDateTime(
+          DateTime.now(),
+        ),
       ),
     ]);
   }
 
   // ============================================================
-  // DETAILS SHEET
+  // EXCEL DETAILS
   // ============================================================
 
   void _buildDetailsSheet(Sheet sheet) {
@@ -883,8 +821,13 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
       TextCellValue('Status'),
     ]);
 
-    for (int index = 0; index < _results.length; index++) {
-      final item = Map<String, dynamic>.from(
+    for (
+      int index = 0;
+      index < _results.length;
+      index++
+    ) {
+      final item =
+          Map<String, dynamic>.from(
         _results[index] as Map,
       );
 
@@ -912,19 +855,27 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
           _text(item['tree_name']),
         ),
         TextCellValue(
-          _displayDateTime(item['assigned_on']),
+          _displayDateTime(
+            item['assigned_on'],
+          ),
         ),
         TextCellValue(
-          _displayDateTime(item['released_on']),
+          _displayDateTime(
+            item['released_on'],
+          ),
         ),
         TextCellValue(
-          _displayDateTime(item['removed_on']),
+          _displayDateTime(
+            item['removed_on'],
+          ),
         ),
         TextCellValue(
           _text(item['duration']),
         ),
         DoubleCellValue(
-          _double(item['duration_days']),
+          _double(
+            item['duration_days'],
+          ),
         ),
         TextCellValue(
           _text(item['status']),
@@ -1001,7 +952,9 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   // ============================================================
 
   int _number(dynamic value) {
-    if (value == null) return 0;
+    if (value == null) {
+      return 0;
+    }
 
     if (value is int) {
       return value;
@@ -1018,7 +971,9 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   double _double(dynamic value) {
-    if (value == null) return 0;
+    if (value == null) {
+      return 0;
+    }
 
     if (value is num) {
       return value.toDouble();
@@ -1034,9 +989,12 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     dynamic value, {
     String fallback = '-',
   }) {
-    if (value == null) return fallback;
+    if (value == null) {
+      return fallback;
+    }
 
-    final text = value.toString().trim();
+    final text =
+        value.toString().trim();
 
     if (text.isEmpty) {
       return fallback;
@@ -1046,11 +1004,16 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   String _displayDate(dynamic value) {
-    if (value == null) return '-';
+    if (value == null) {
+      return '-';
+    }
 
-    final text = value.toString().trim();
+    final text =
+        value.toString().trim();
 
-    if (text.isEmpty) return '-';
+    if (text.isEmpty) {
+      return '-';
+    }
 
     if (text.length >= 10) {
       return text.substring(0, 10);
@@ -1060,23 +1023,29 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   String _displayDateTime(dynamic value) {
-    if (value == null) return '-';
+    if (value == null) {
+      return '-';
+    }
 
-    final text = value.toString().trim();
+    final text =
+        value.toString().trim();
 
-    if (text.isEmpty) return '-';
+    if (text.isEmpty) {
+      return '-';
+    }
 
-    final parsed = DateTime.tryParse(text);
+    final parsed =
+        DateTime.tryParse(text);
 
     if (parsed == null) {
       return text;
     }
 
-    final local = parsed.toLocal();
+    final local =
+        parsed.toLocal();
 
-    String two(int value) {
-      return value.toString().padLeft(2, '0');
-    }
+    String two(int value) =>
+        value.toString().padLeft(2, '0');
 
     return '${two(local.day)}-'
         '${two(local.month)}-'
@@ -1086,7 +1055,7 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   // ============================================================
-  // PERIOD LABEL
+  // PERIOD
   // ============================================================
 
   String _periodLabel() {
@@ -1112,7 +1081,7 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   // ============================================================
-  // STATUS LABEL
+  // STATUS
   // ============================================================
 
   String _statusLabel() {
@@ -1126,30 +1095,18 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
       case 'removed':
         return 'Removed';
 
-      case 'all':
       default:
         return 'All Statuses';
     }
   }
 
   // ============================================================
-  // DATE RANGE
+  // DATE DISPLAY
   // ============================================================
 
-  String _dateRangeText() {
-    if (_startDate == null || _endDate == null) {
-      return 'Select date range';
-    }
-
-    return '${_formatDate(_startDate!)}'
-        '  →  '
-        '${_formatDate(_endDate!)}';
-  }
-
   String _formatDate(DateTime date) {
-    String two(int value) {
-      return value.toString().padLeft(2, '0');
-    }
+    String two(int value) =>
+        value.toString().padLeft(2, '0');
 
     return '${two(date.day)}-'
         '${two(date.month)}-'
@@ -1164,13 +1121,20 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     String message, {
     bool isError = false,
   }) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor:
-            isError ? Colors.red.shade700 : null,
-      ),
-    );
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(message),
+          behavior: SnackBarBehavior.floating,
+          backgroundColor:
+              isError
+                  ? Colors.red.shade700
+                  : null,
+        ),
+      );
   }
 
   // ============================================================
@@ -1180,40 +1144,107 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (
+        context,
+        constraints,
+      ) {
         return SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(),
-              const SizedBox(height: 20),
-              _buildFilters(),
-              const SizedBox(height: 20),
+          padding: EdgeInsets.symmetric(
+            horizontal:
+                constraints.maxWidth < 600
+                    ? 12
+                    : 24,
+            vertical:
+                constraints.maxWidth < 600
+                    ? 16
+                    : 24,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints:
+                  const BoxConstraints(
+                maxWidth: 1600,
+              ),
+              child: Column(
+                crossAxisAlignment:
+                    CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(),
 
-              if (_error != null) ...[
-                _buildErrorCard(),
-                const SizedBox(height: 20),
-              ],
+                  const SizedBox(
+                    height: 20,
+                  ),
 
-              if (_loading)
-                const Padding(
-                  padding: EdgeInsets.symmetric(
-                    vertical: 80,
+                  _buildFilters(),
+
+                  const SizedBox(
+                    height: 20,
                   ),
-                  child: Center(
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (_report != null) ...[
-                _buildSummaryCards(),
-                const SizedBox(height: 20),
-                _buildResultsTable(),
-              ],
-            ],
+
+                  if (_error != null) ...[
+                    _buildErrorCard(),
+                    const SizedBox(
+                      height: 20,
+                    ),
+                  ],
+
+                  if (_loading)
+                    _buildLoading()
+                  else if (_report != null) ...[
+                    _buildSummaryCards(),
+
+                    const SizedBox(
+                      height: 20,
+                    ),
+
+                    _buildResultsTable(),
+                  ],
+                ],
+              ),
+            ),
           ),
         );
       },
+    );
+  }
+
+  // ============================================================
+  // LOADING
+  // ============================================================
+
+  Widget _buildLoading() {
+    return Container(
+      width: double.infinity,
+      padding:
+          const EdgeInsets.symmetric(
+        vertical: 80,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius:
+            BorderRadius.circular(14),
+      ),
+      child: const Column(
+        children: [
+          SizedBox(
+            width: 32,
+            height: 32,
+            child:
+                CircularProgressIndicator(
+              strokeWidth: 3,
+            ),
+          ),
+          SizedBox(height: 14),
+          Text(
+            'Loading report...',
+            style: TextStyle(
+              fontSize: 13,
+              color:
+                  Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -1222,35 +1253,43 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   // ============================================================
 
   Widget _buildHeader() {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Flax Assignment Report',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF0F172A),
-                ),
-              ),
-              SizedBox(height: 5),
-              Text(
-                'Review flax assignments, release history and duration',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-            ],
-          ),
-        ),
+    return LayoutBuilder(
+      builder: (
+        context,
+        constraints,
+      ) {
+        final compact =
+            constraints.maxWidth < 800;
 
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        final title = Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Flax Assignment Report',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight:
+                    FontWeight.bold,
+                color:
+                    Color(0xFF0F172A),
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              'Review flax assignments, release history and duration',
+              style: const TextStyle(
+                fontSize: 13,
+                color:
+                    Color(0xFF64748B),
+              ),
+            ),
+          ],
+        );
+
+        final buttons = Wrap(
+          spacing: 10,
+          runSpacing: 10,
           children: [
             OutlinedButton.icon(
               onPressed:
@@ -1263,21 +1302,20 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
                   ? const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator(
+                      child:
+                          CircularProgressIndicator(
                         strokeWidth: 2,
                       ),
                     )
                   : const Icon(
-                      Icons.table_view_outlined,
+                      Icons
+                          .table_view_outlined,
                       size: 18,
                     ),
               label: const Text(
                 'Download XLSX',
               ),
             ),
-
-            const SizedBox(width: 10),
-
             OutlinedButton.icon(
               onPressed:
                   _downloading ||
@@ -1286,7 +1324,8 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
                       ? null
                       : _downloadPdf,
               icon: const Icon(
-                Icons.picture_as_pdf_outlined,
+                Icons
+                    .picture_as_pdf_outlined,
                 size: 18,
               ),
               label: const Text(
@@ -1294,8 +1333,32 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
               ),
             ),
           ],
-        ),
-      ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment:
+                CrossAxisAlignment.stretch,
+            children: [
+              title,
+              const SizedBox(height: 14),
+              buttons,
+            ],
+          );
+        }
+
+        return Row(
+          crossAxisAlignment:
+              CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: title,
+            ),
+            const SizedBox(width: 20),
+            buttons,
+          ],
+        );
+      },
     );
   }
 
@@ -1305,176 +1368,59 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
 
   Widget _buildFilters() {
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
+            color:
+                Colors.black.withOpacity(
+              0.025,
+            ),
             blurRadius: 10,
-            offset: const Offset(0, 3),
+            offset:
+                const Offset(0, 3),
           ),
         ],
       ),
       child: LayoutBuilder(
-        builder: (context, constraints) {
-          final compact = constraints.maxWidth < 800;
+        builder: (
+          context,
+          constraints,
+        ) {
+          final compact =
+              constraints.maxWidth < 900;
 
-          // ----------------------------------------------------
-          // PERIOD
-          // ----------------------------------------------------
+          final periodField =
+              _buildPeriodField();
 
-          final periodField = SizedBox(
-            width: compact ? double.infinity : 220,
-            child: DropdownButtonFormField<String>(
-              value: _period,
-              decoration: _inputDecoration(
-                'Report Period',
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'daily',
-                  child: Text('Daily'),
-                ),
-                DropdownMenuItem(
-                  value: 'weekly',
-                  child: Text('Weekly'),
-                ),
-                DropdownMenuItem(
-                  value: 'monthly',
-                  child: Text('Monthly'),
-                ),
-                DropdownMenuItem(
-                  value: 'yearly',
-                  child: Text('Yearly'),
-                ),
-                DropdownMenuItem(
-                  value: 'selected',
-                  child: Text('Selected Date Range'),
-                ),
-              ],
-              onChanged: _loading
-                  ? null
-                  : (value) {
-                      if (value == null) return;
+          final statusField =
+              _buildStatusField();
 
-                      setState(() {
-                        _period = value;
+          final dateFields =
+              _buildDateFields();
 
-                        // Clear dates when switching away
-                        // from selected date range.
-                        if (value != 'selected') {
-                          _startDate = null;
-                          _endDate = null;
-                        }
-                      });
-                    },
-            ),
-          );
-
-          // ----------------------------------------------------
-          // STATUS
-          // ----------------------------------------------------
-
-          final statusField = SizedBox(
-            width: compact ? double.infinity : 190,
-            child: DropdownButtonFormField<String>(
-              value: _statusFilter,
-              decoration: _inputDecoration(
-                'Assignment Status',
-              ),
-              items: const [
-                DropdownMenuItem(
-                  value: 'all',
-                  child: Text('All Statuses'),
-                ),
-                DropdownMenuItem(
-                  value: 'assigned',
-                  child: Text('Assigned'),
-                ),
-                DropdownMenuItem(
-                  value: 'released',
-                  child: Text('Released'),
-                ),
-                DropdownMenuItem(
-                  value: 'removed',
-                  child: Text('Removed'),
-                ),
-              ],
-              onChanged: _loading
-                  ? null
-                  : (value) {
-                      if (value == null) return;
-
-                      setState(() {
-                        _statusFilter = value;
-                      });
-                    },
-            ),
-          );
-
-          // ----------------------------------------------------
-          // DATE FIELDS
-          // ----------------------------------------------------
-
-          final dateFields = _period != 'selected'
-              ? const SizedBox.shrink()
-              : Row(
-                  children: [
-                    Expanded(
-                      child: _dateButton(
-                        label: 'From',
-                        value: _startDate == null
-                            ? 'Select date'
-                            : _formatDate(
-                                _startDate!,
-                              ),
-                        onPressed: _pickStartDate,
-                      ),
-                    ),
-
-                    const SizedBox(width: 12),
-
-                    Expanded(
-                      child: _dateButton(
-                        label: 'To',
-                        value: _endDate == null
-                            ? 'Select date'
-                            : _formatDate(
-                                _endDate!,
-                              ),
-                        onPressed: _pickEndDate,
-                      ),
-                    ),
-                  ],
-                );
-
-          // ----------------------------------------------------
-          // ACTION BUTTONS
-          // ----------------------------------------------------
-
-          final actionButtons = Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
+          final generateButton =
               OutlinedButton.icon(
-                onPressed: _loading
+            onPressed:
+                _loading
                     ? null
                     : _loadReport,
-                icon: const Icon(
-                  Icons.refresh,
-                  size: 18,
-                ),
-                label: const Text(
-                  'Generate',
-                ),
-              ),
-            ],
+            icon: const Icon(
+              Icons.refresh,
+              size: 18,
+            ),
+            label: const Text(
+              'Generate Report',
+            ),
           );
-
-          // ----------------------------------------------------
-          // COMPACT
-          // ----------------------------------------------------
 
           if (compact) {
             return Column(
@@ -1483,53 +1429,217 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
               children: [
                 periodField,
 
-                const SizedBox(height: 14),
+                const SizedBox(
+                  height: 14,
+                ),
 
                 statusField,
 
-                if (_period == 'selected') ...[
-                  const SizedBox(height: 14),
+                if (_period ==
+                    'selected') ...[
+                  const SizedBox(
+                    height: 14,
+                  ),
                   dateFields,
                 ],
 
-                const SizedBox(height: 14),
+                const SizedBox(
+                  height: 14,
+                ),
 
                 Align(
-                  alignment: Alignment.centerRight,
-                  child: actionButtons,
+                  alignment:
+                      Alignment.centerRight,
+                  child:
+                      generateButton,
                 ),
               ],
             );
           }
 
-          // ----------------------------------------------------
-          // DESKTOP
-          // ----------------------------------------------------
-
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+          return Wrap(
+            spacing: 16,
+            runSpacing: 14,
+            crossAxisAlignment:
+                WrapCrossAlignment.end,
             children: [
-              periodField,
+              SizedBox(
+                width: 220,
+                child: periodField,
+              ),
 
-              const SizedBox(width: 16),
+              SizedBox(
+                width: 210,
+                child: statusField,
+              ),
 
-              statusField,
-
-              if (_period == 'selected') ...[
-                const SizedBox(width: 16),
-
-                Expanded(
+              if (_period ==
+                  'selected')
+                SizedBox(
+                  width: 420,
                   child: dateFields,
                 ),
-              ],
 
-              const Spacer(),
-
-              actionButtons,
+              generateButton,
             ],
           );
         },
       ),
+    );
+  }
+
+  // ============================================================
+  // PERIOD FIELD
+  // ============================================================
+
+  Widget _buildPeriodField() {
+    return DropdownButtonFormField<String>(
+      value: _period,
+      isExpanded: true,
+      decoration:
+          _inputDecoration(
+        'Report Period',
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: 'daily',
+          child: Text('Daily'),
+        ),
+        DropdownMenuItem(
+          value: 'weekly',
+          child: Text('Weekly'),
+        ),
+        DropdownMenuItem(
+          value: 'monthly',
+          child: Text('Monthly'),
+        ),
+        DropdownMenuItem(
+          value: 'yearly',
+          child: Text('Yearly'),
+        ),
+        DropdownMenuItem(
+          value: 'selected',
+          child: Text(
+            'Selected Date Range',
+          ),
+        ),
+      ],
+      onChanged: _loading
+          ? null
+          : (value) {
+              if (value == null) {
+                return;
+              }
+
+              setState(() {
+                _period = value;
+
+                if (value !=
+                    'selected') {
+                  _startDate = null;
+                  _endDate = null;
+                }
+              });
+            },
+    );
+  }
+
+  // ============================================================
+  // STATUS FIELD
+  // ============================================================
+
+  Widget _buildStatusField() {
+    return DropdownButtonFormField<String>(
+      value: _statusFilter,
+      isExpanded: true,
+      decoration:
+          _inputDecoration(
+        'Assignment Status',
+      ),
+      items: const [
+        DropdownMenuItem(
+          value: 'all',
+          child: Text(
+            'All Statuses',
+          ),
+        ),
+        DropdownMenuItem(
+          value: 'assigned',
+          child: Text(
+            'Assigned',
+          ),
+        ),
+        DropdownMenuItem(
+          value: 'released',
+          child: Text(
+            'Released',
+          ),
+        ),
+        DropdownMenuItem(
+          value: 'removed',
+          child: Text(
+            'Removed',
+          ),
+        ),
+      ],
+      onChanged: _loading
+          ? null
+          : (value) {
+              if (value == null) {
+                return;
+              }
+
+              setState(() {
+                _statusFilter =
+                    value;
+              });
+            },
+    );
+  }
+
+  // ============================================================
+  // DATE FIELDS
+  // ============================================================
+
+  Widget _buildDateFields() {
+    return Row(
+      children: [
+        Expanded(
+          child: _dateButton(
+            label: 'From',
+            value:
+                _startDate == null
+                    ? 'Select date'
+                    : _formatDate(
+                        _startDate!,
+                      ),
+            onPressed:
+                _loading
+                    ? () {}
+                    : _pickStartDate,
+          ),
+        ),
+
+        const SizedBox(
+          width: 12,
+        ),
+
+        Expanded(
+          child: _dateButton(
+            label: 'To',
+            value:
+                _endDate == null
+                    ? 'Select date'
+                    : _formatDate(
+                        _endDate!,
+                      ),
+            onPressed:
+                _loading
+                    ? () {}
+                    : _pickEndDate,
+          ),
+        ),
+      ],
     );
   }
 
@@ -1544,37 +1654,54 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }) {
     return OutlinedButton(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        alignment: Alignment.centerLeft,
-        padding: const EdgeInsets.symmetric(
+      style:
+          OutlinedButton.styleFrom(
+        alignment:
+            Alignment.centerLeft,
+        padding:
+            const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 16,
+          vertical: 11,
         ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
+        minimumSize:
+            const Size(0, 58),
+        shape:
+            RoundedRectangleBorder(
+          borderRadius:
+              BorderRadius.circular(
+            8,
+          ),
         ),
         side: const BorderSide(
-          color: Color(0xFFE2E8F0),
+          color:
+              Color(0xFFE2E8F0),
         ),
       ),
       child: Column(
+        mainAxisSize:
+            MainAxisSize.min,
         crossAxisAlignment:
             CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: const TextStyle(
-              fontSize: 11,
-              color: Color(0xFF64748B),
+              fontSize: 10,
+              color:
+                  Color(0xFF64748B),
             ),
           ),
           const SizedBox(height: 3),
           Text(
             value,
+            overflow:
+                TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 13,
-              color: Color(0xFF0F172A),
-              fontWeight: FontWeight.w500,
+              color:
+                  Color(0xFF0F172A),
+              fontWeight:
+                  FontWeight.w500,
             ),
           ),
         ],
@@ -1592,23 +1719,41 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     return InputDecoration(
       labelText: label,
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(
-          color: Color(0xFFE2E8F0),
+      fillColor:
+          const Color(0xFFF8FAFC),
+      contentPadding:
+          const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 14,
+      ),
+      border:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(8),
+        borderSide:
+            const BorderSide(
+          color:
+              Color(0xFFE2E8F0),
         ),
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(
-          color: Color(0xFFE2E8F0),
+      enabledBorder:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(8),
+        borderSide:
+            const BorderSide(
+          color:
+              Color(0xFFE2E8F0),
         ),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(
-          color: Color(0xFF1D5CFF),
+      focusedBorder:
+          OutlineInputBorder(
+        borderRadius:
+            BorderRadius.circular(8),
+        borderSide:
+            const BorderSide(
+          color:
+              Color(0xFF1D5CFF),
           width: 1.5,
         ),
       ),
@@ -1622,36 +1767,48 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   Widget _buildErrorCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding:
+          const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(12),
         border: Border.all(
-          color: const Color(0xFFFECACA),
+          color:
+              const Color(0xFFFECACA),
         ),
       ),
       child: Row(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
         children: [
           const Icon(
             Icons.error_outline,
             color: Colors.red,
           ),
 
-          const SizedBox(width: 12),
+          const SizedBox(
+            width: 12,
+          ),
 
           Expanded(
             child: Text(
               _error!,
               style: const TextStyle(
-                color: Color(0xFF991B1B),
+                color:
+                    Color(0xFF991B1B),
                 fontSize: 13,
               ),
             ),
           ),
 
           TextButton(
-            onPressed: _loadReport,
-            child: const Text('Retry'),
+            onPressed:
+                _loading
+                    ? null
+                    : _loadReport,
+            child:
+                const Text('Retry'),
           ),
         ],
       ),
@@ -1659,21 +1816,49 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   // ============================================================
-  // SUMMARY
+  // SUMMARY CARDS
   // ============================================================
 
   Widget _buildSummaryCards() {
     return LayoutBuilder(
-      builder: (context, constraints) {
+      builder: (
+        context,
+        constraints,
+      ) {
+        final width =
+            constraints.maxWidth;
+
+        int columns;
+
+        if (width < 550) {
+          columns = 1;
+        } else if (width < 850) {
+          columns = 2;
+        } else if (width < 1200) {
+          columns = 3;
+        } else {
+          columns = 6;
+        }
+
+        const spacing = 12.0;
+
+        final cardWidth =
+            columns == 1
+                ? width
+                : (width -
+                        (spacing *
+                            (columns - 1))) /
+                    columns;
+
         final cards = [
           _summaryCard(
             'Total Assignments',
             _number(
-              _summary['total_assignments'],
+              _summary[
+                  'total_assignments'],
             ).toString(),
             Icons.assignment_outlined,
           ),
-
           _summaryCard(
             'Released',
             _number(
@@ -1681,60 +1866,53 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
             ).toString(),
             Icons.check_circle_outline,
           ),
-
           _summaryCard(
             'Assigned',
             _number(
-              _summary['currently_assigned'],
+              _summary[
+                  'currently_assigned'],
             ).toString(),
-            Icons.account_tree_outlined,
+            Icons
+                .account_tree_outlined,
           ),
-
           _summaryCard(
             'Removed',
             _number(
               _summary['removed'],
             ).toString(),
-            Icons.remove_circle_outline,
+            Icons
+                .remove_circle_outline,
           ),
-
           _summaryCard(
             'Unique Flaxes',
             _number(
-              _summary['unique_flaxes'],
+              _summary[
+                  'unique_flaxes'],
             ).toString(),
-            Icons.view_module_outlined,
+            Icons
+                .view_module_outlined,
           ),
-
           _summaryCard(
             'Unique Trees',
             _number(
-              _summary['unique_trees'],
+              _summary[
+                  'unique_trees'],
             ).toString(),
             Icons.forest_outlined,
           ),
         ];
 
-        if (constraints.maxWidth < 700) {
-          return Column(
-            children: cards
-                .map(
-                  (card) => Padding(
-                    padding:
-                        const EdgeInsets.only(
-                      bottom: 12,
-                    ),
-                    child: card,
-                  ),
-                )
-                .toList(),
-          );
-        }
-
         return Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: cards,
+          spacing: spacing,
+          runSpacing: spacing,
+          children: cards
+              .map(
+                (card) => SizedBox(
+                  width: cardWidth,
+                  child: card,
+                ),
+              )
+              .toList(),
         );
       },
     );
@@ -1750,42 +1928,62 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
     IconData icon,
   ) {
     return Container(
-      width: 180,
-      padding: const EdgeInsets.all(18),
+      width: double.infinity,
+      constraints:
+          const BoxConstraints(
+        minHeight: 100,
+      ),
+      padding:
+          const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(12),
+        border: Border.all(
+          color:
+              const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(
-              0.03,
+            color:
+                Colors.black.withOpacity(
+              0.025,
             ),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
+            blurRadius: 8,
+            offset:
+                const Offset(0, 3),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 38,
-            height: 38,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
-              color: const Color(0xFFEFF6FF),
+              color:
+                  const Color(0xFFEFF6FF),
               borderRadius:
-                  BorderRadius.circular(9),
+                  BorderRadius.circular(
+                10,
+              ),
             ),
             child: Icon(
               icon,
-              size: 20,
-              color: const Color(0xFF1D5CFF),
+              size: 21,
+              color:
+                  const Color(0xFF1D5CFF),
             ),
           ),
 
-          const SizedBox(width: 10),
+          const SizedBox(
+            width: 12,
+          ),
 
           Expanded(
             child: Column(
+              mainAxisAlignment:
+                  MainAxisAlignment.center,
               crossAxisAlignment:
                   CrossAxisAlignment.start,
               children: [
@@ -1794,20 +1992,29 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
                   maxLines: 2,
                   overflow:
                       TextOverflow.ellipsis,
-                  style: const TextStyle(
+                  style:
+                      const TextStyle(
                     fontSize: 11,
-                    color: Color(0xFF64748B),
+                    color:
+                        Color(0xFF64748B),
+                    fontWeight:
+                        FontWeight.w500,
                   ),
                 ),
 
-                const SizedBox(height: 3),
+                const SizedBox(
+                  height: 4,
+                ),
 
                 Text(
                   value,
-                  style: const TextStyle(
-                    fontSize: 19,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF0F172A),
+                  style:
+                      const TextStyle(
+                    fontSize: 20,
+                    fontWeight:
+                        FontWeight.bold,
+                    color:
+                        Color(0xFF0F172A),
                   ),
                 ),
               ],
@@ -1827,71 +2034,108 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius:
+            BorderRadius.circular(14),
+        border: Border.all(
+          color:
+              const Color(0xFFE2E8F0),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(
-              0.03,
+            color:
+                Colors.black.withOpacity(
+              0.025,
             ),
             blurRadius: 10,
-            offset: const Offset(0, 3),
+            offset:
+                const Offset(0, 3),
           ),
         ],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(20),
+        padding:
+            const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment:
               CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Assignment Details',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF0F172A),
-                    ),
-                  ),
-                ),
+            LayoutBuilder(
+              builder: (
+                context,
+                constraints,
+              ) {
+                if (constraints.maxWidth <
+                    500) {
+                  return Column(
+                    crossAxisAlignment:
+                        CrossAxisAlignment
+                            .start,
+                    children: [
+                      const Text(
+                        'Assignment Details',
+                        style:
+                            TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              FontWeight
+                                  .bold,
+                          color:
+                              Color(
+                            0xFF0F172A,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(
+                        height: 5,
+                      ),
+                      _tableMeta(),
+                    ],
+                  );
+                }
 
-                Text(
-                  '${_results.length} records',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF64748B),
-                  ),
-                ),
-              ],
+                return Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Assignment Details',
+                        style:
+                            TextStyle(
+                          fontSize: 16,
+                          fontWeight:
+                              FontWeight
+                                  .bold,
+                          color:
+                              Color(
+                            0xFF0F172A,
+                          ),
+                        ),
+                      ),
+                    ),
+                    _tableMeta(),
+                  ],
+                );
+              },
             ),
 
-            const SizedBox(height: 6),
+            const SizedBox(
+              height: 6,
+            ),
 
             Text(
               'Status: ${_statusLabel()}',
               style: const TextStyle(
                 fontSize: 11,
-                color: Color(0xFF64748B),
+                color:
+                    Color(0xFF64748B),
               ),
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(
+              height: 16,
+            ),
 
             if (_results.isEmpty)
-              const SizedBox(
-                height: 180,
-                child: Center(
-                  child: Text(
-                    'No assignment records found for this period and status.',
-                    style: TextStyle(
-                      color: Color(0xFF64748B),
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              )
+              _buildEmptyState()
             else
               _buildDataTable(),
           ],
@@ -1901,141 +2145,304 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   }
 
   // ============================================================
+  // TABLE META
+  // ============================================================
+
+  Widget _tableMeta() {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 5,
+      ),
+      decoration: BoxDecoration(
+        color:
+            const Color(0xFFF1F5F9),
+        borderRadius:
+            BorderRadius.circular(20),
+      ),
+      child: Text(
+        '${_results.length} records',
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight:
+              FontWeight.w600,
+          color:
+              Color(0xFF475569),
+        ),
+      ),
+    );
+  }
+
+  // ============================================================
+  // EMPTY STATE
+  // ============================================================
+
+  Widget _buildEmptyState() {
+    return Container(
+      width: double.infinity,
+      constraints:
+          const BoxConstraints(
+        minHeight: 220,
+      ),
+      padding:
+          const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment:
+            MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color:
+                  const Color(0xFFF1F5F9),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons
+                  .assignment_outlined,
+              size: 28,
+              color:
+                  Color(0xFF94A3B8),
+            ),
+          ),
+
+          const SizedBox(
+            height: 14,
+          ),
+
+          const Text(
+            'No assignment records found',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight:
+                  FontWeight.w600,
+              color:
+                  Color(0xFF334155),
+            ),
+          ),
+
+          const SizedBox(
+            height: 6,
+          ),
+
+          Text(
+            'Try changing the report period or assignment status.',
+            textAlign:
+                TextAlign.center,
+            style:
+                const TextStyle(
+              fontSize: 12,
+              color:
+                  Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
   // DATA TABLE
   // ============================================================
 
   Widget _buildDataTable() {
-    return SizedBox(
-      width: double.infinity,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowHeight: 46,
-          dataRowMinHeight: 48,
-          dataRowMaxHeight: 58,
-          columnSpacing: 28,
-
-          headingTextStyle:
-              const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF475569),
+    return ClipRRect(
+      borderRadius:
+          BorderRadius.circular(8),
+      child: Container(
+        decoration:
+            BoxDecoration(
+          border: Border.all(
+            color:
+                const Color(
+              0xFFE2E8F0,
+            ),
           ),
-
-          dataTextStyle:
-              const TextStyle(
-            fontSize: 12,
-            color: Color(0xFF0F172A),
+          borderRadius:
+              BorderRadius.circular(
+            8,
           ),
+        ),
+        child:
+            SingleChildScrollView(
+          scrollDirection:
+              Axis.horizontal,
+          child: DataTable(
+            headingRowHeight: 48,
+            dataRowMinHeight: 50,
+            dataRowMaxHeight: 62,
+            columnSpacing: 28,
+            horizontalMargin: 16,
 
-          columns: const [
-            DataColumn(
-              label: Text('#'),
+            headingTextStyle:
+                const TextStyle(
+              fontSize: 11,
+              fontWeight:
+                  FontWeight.bold,
+              color:
+                  Color(0xFF475569),
             ),
-            DataColumn(
-              label: Text('FLAX NO'),
-            ),
-            DataColumn(
-              label: Text('SIZE'),
-            ),
-            DataColumn(
-              label: Text('DESIGN'),
-            ),
-            DataColumn(
-              label: Text('TREE NO'),
-            ),
-            DataColumn(
-              label: Text('ASSIGNED'),
-            ),
-            DataColumn(
-              label: Text('RELEASED'),
-            ),
-            DataColumn(
-              label: Text('DURATION'),
-            ),
-            DataColumn(
-              label: Text('STATUS'),
-            ),
-          ],
 
-          rows: List<DataRow>.generate(
-            _results.length,
-            (index) {
-              final item =
-                  Map<String, dynamic>.from(
-                _results[index] as Map,
-              );
+            dataTextStyle:
+                const TextStyle(
+              fontSize: 12,
+              color:
+                  Color(0xFF0F172A),
+            ),
 
-              final status = _text(
-                item['status'],
-                fallback: 'Assigned',
-              );
+            headingRowColor:
+                WidgetStateProperty
+                    .all(
+              const Color(
+                0xFFF8FAFC,
+              ),
+            ),
 
-              return DataRow(
-                cells: [
-                  DataCell(
-                    Text('${index + 1}'),
-                  ),
+            columns: const [
+              DataColumn(
+                label: Text('#'),
+              ),
+              DataColumn(
+                label:
+                    Text('FLAX NO'),
+              ),
+              DataColumn(
+                label:
+                    Text('SIZE'),
+              ),
+              DataColumn(
+                label:
+                    Text('DESIGN'),
+              ),
+              DataColumn(
+                label:
+                    Text('TREE NO'),
+              ),
+              DataColumn(
+                label:
+                    Text('ASSIGNED'),
+              ),
+              DataColumn(
+                label:
+                    Text('RELEASED'),
+              ),
+              DataColumn(
+                label:
+                    Text('DURATION'),
+              ),
+              DataColumn(
+                label:
+                    Text('STATUS'),
+              ),
+            ],
 
-                  DataCell(
-                    Text(
-                      _text(item['flax_no']),
+            rows: List<
+                DataRow>.generate(
+              _results.length,
+              (index) {
+                final item =
+                    Map<String,
+                        dynamic>.from(
+                  _results[index]
+                      as Map,
+                );
+
+                final status =
+                    _text(
+                  item['status'],
+                  fallback:
+                      'Assigned',
+                );
+
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Text(
+                        '${index + 1}',
+                      ),
                     ),
-                  ),
 
-                  DataCell(
-                    Text(
-                      _text(item['flax_size']),
-                    ),
-                  ),
-
-                  DataCell(
-                    SizedBox(
-                      width: 150,
-                      child: Text(
+                    DataCell(
+                      Text(
                         _text(
-                          item['design_name'],
+                          item[
+                              'flax_no'],
                         ),
-                        overflow:
-                            TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
 
-                  DataCell(
-                    Text(
-                      _text(item['tree_no']),
-                    ),
-                  ),
-
-                  DataCell(
-                    Text(
-                      _displayDateTime(
-                        item['assigned_on'],
+                    DataCell(
+                      Text(
+                        _text(
+                          item[
+                              'flax_size'],
+                        ),
                       ),
                     ),
-                  ),
 
-                  DataCell(
-                    Text(
-                      _displayDateTime(
-                        item['released_on'],
+                    DataCell(
+                      SizedBox(
+                        width: 160,
+                        child: Text(
+                          _text(
+                            item[
+                                'design_name'],
+                          ),
+                          maxLines: 2,
+                          overflow:
+                              TextOverflow
+                                  .ellipsis,
+                        ),
                       ),
                     ),
-                  ),
 
-                  DataCell(
-                    Text(
-                      _text(item['duration']),
+                    DataCell(
+                      Text(
+                        _text(
+                          item[
+                              'tree_no'],
+                        ),
+                      ),
                     ),
-                  ),
 
-                  DataCell(
-                    _statusChip(status),
-                  ),
-                ],
-              );
-            },
+                    DataCell(
+                      Text(
+                        _displayDateTime(
+                          item[
+                              'assigned_on'],
+                        ),
+                      ),
+                    ),
+
+                    DataCell(
+                      Text(
+                        _displayDateTime(
+                          item[
+                              'released_on'],
+                        ),
+                      ),
+                    ),
+
+                    DataCell(
+                      Text(
+                        _text(
+                          item[
+                              'duration'],
+                        ),
+                      ),
+                    ),
+
+                    DataCell(
+                      _statusChip(
+                        status,
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
@@ -2046,40 +2453,57 @@ class FlaxReportScreenState extends State<FlaxReportScreen> {
   // STATUS CHIP
   // ============================================================
 
-  Widget _statusChip(String status) {
+  Widget _statusChip(
+    String status,
+  ) {
     final normalized =
         status.toLowerCase().trim();
 
     Color foreground;
     Color background;
 
-    if (normalized == 'released') {
-      foreground = const Color(0xFF059669);
-      background = const Color(0xFFE1F6EB);
-    } else if (normalized == 'removed') {
-      foreground = const Color(0xFFDC2626);
-      background = const Color(0xFFFEE2E2);
+    if (normalized ==
+        'released') {
+      foreground =
+          const Color(0xFF059669);
+      background =
+          const Color(0xFFE1F6EB);
+    } else if (normalized ==
+        'removed') {
+      foreground =
+          const Color(0xFFDC2626);
+      background =
+          const Color(0xFFFEE2E2);
     } else {
-      foreground = const Color(0xFF2563EB);
-      background = const Color(0xFFEFF6FF);
+      foreground =
+          const Color(0xFF2563EB);
+      background =
+          const Color(0xFFEFF6FF);
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
+      padding:
+          const EdgeInsets.symmetric(
         horizontal: 10,
         vertical: 5,
       ),
       decoration: BoxDecoration(
         color: background,
         borderRadius:
-            BorderRadius.circular(20),
+            BorderRadius.circular(
+          20,
+        ),
       ),
       child: Text(
         status,
+        maxLines: 1,
+        overflow:
+            TextOverflow.ellipsis,
         style: TextStyle(
           color: foreground,
           fontSize: 11,
-          fontWeight: FontWeight.bold,
+          fontWeight:
+              FontWeight.bold,
         ),
       ),
     );

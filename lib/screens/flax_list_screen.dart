@@ -696,9 +696,21 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Container(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final compact = width < 640;
+        final padding = width < 420
+            ? 8.0
+            : compact
+                ? 12.0
+                : width < 1100
+                    ? 16.0
+                    : 24.0;
+
+        return Padding(
+          padding: EdgeInsets.all(padding),
+          child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
@@ -737,6 +749,8 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
           ],
         ),
       ),
+        );
+      },
     );
   }
 
@@ -745,102 +759,139 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
   // ------------------------------------------------------------
 
   Widget _buildBanner() {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 24,
-        vertical: 20,
-      ),
-      color: const Color(0xFF2C4870),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: const Icon(
-                  Icons.dns_outlined,
-                  color: Color(0xFF2C4870),
-                  size: 26,
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final isPhone = width < 520;
+        final isCompact = width < 760;
+
+        final titleBlock = Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(isPhone ? 8 : 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(10),
               ),
-              const SizedBox(width: 14),
-              Column(
+              child: Icon(
+                Icons.dns_outlined,
+                color: const Color(0xFF2C4870),
+                size: isPhone ? 22 : 26,
+              ),
+            ),
+            SizedBox(width: isPhone ? 10 : 14),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
                     'Flax Master List',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 22,
+                      fontSize: isPhone ? 16 : isCompact ? 18 : 22,
                     ),
                   ),
-                  SizedBox(height: 2),
+                  if (!isCompact) ...[
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Manage all flax entries with size and status',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+
+        final loadingIndicator = _loadingAllFlaxes
+            ? const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 14,
+                    height: 14,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                  SizedBox(width: 8),
                   Text(
-                    'Manage all flax entries with size and status',
+                    'Loading...',
                     style: TextStyle(
                       color: Colors.white70,
                       fontSize: 12,
                     ),
                   ),
                 ],
-              ),
-            ],
-          ),
+              )
+            : const SizedBox.shrink();
 
-          // Complete dataset loading indicator.
-          if (_loadingAllFlaxes)
-            const Row(
-              children: [
-                SizedBox(
-                  width: 14,
-                  height: 14,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                ),
-                SizedBox(width: 8),
-                Text(
-                  'Loading all flaxes...',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+        final companyBadge = const Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Kalpana Enterprises',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
             ),
-
-          // _buildBannerCount(),
-
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: const [
-              Text(
-                'Kalpana Enterprises',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
+            SizedBox(height: 2),
+            Text(
+              'Better Process  |  Better Production',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 11,
               ),
-              SizedBox(height: 2),
-              Text(
-                'Better Process  |  Better Production',
-                style: TextStyle(
-                  color: Colors.white60,
-                  fontSize: 11,
-                ),
-              ),
-            ],
+            ),
+          ],
+        );
+
+        return Container(
+          padding: EdgeInsets.symmetric(
+            horizontal: isPhone ? 12 : isCompact ? 16 : 24,
+            vertical: isPhone ? 14 : 20,
           ),
-        ],
-      ),
+          color: const Color(0xFF2C4870),
+          child: isPhone
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleBlock,
+                    if (_loadingAllFlaxes) ...[
+                      const SizedBox(height: 10),
+                      loadingIndicator,
+                    ],
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: titleBlock),
+                    if (_loadingAllFlaxes) ...[
+                      const SizedBox(width: 16),
+                      loadingIndicator,
+                    ],
+                    if (!isCompact) ...[
+                      const SizedBox(width: 18),
+                      companyBadge,
+                    ],
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -887,110 +938,132 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
   // ------------------------------------------------------------
 
   Widget _buildToolbar() {
-    return Row(
-      children: [
-        Expanded(
-          child: DropdownButtonFormField<String>(
-            value: _selectedSize,
-            decoration: InputDecoration(
-              labelText: 'Flax Size',
-              hintText: 'Select size',
-              prefixIcon: const Icon(
-                Icons.straighten_outlined,
-                size: 20,
-              ),
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 12,
-                horizontal: 12,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: Color(0xFFE2E8F0),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: Color(0xFFE2E8F0),
-                ),
-              ),
-            ),
-            items: [
-              const DropdownMenuItem<String>(
-                value: 'All',
-                child: Text('All Sizes'),
-              ),
-              ..._flaxSizes.map(
-                (size) => DropdownMenuItem<String>(
-                  value: size,
-                  child: Text(size),
-                ),
-              ),
-            ],
-            onChanged: _loadingAllFlaxes
-                ? null
-                : _onSizeChanged,
-          ),
+    final dropdown = DropdownButtonFormField<String>(
+      value: _selectedSize,
+      isExpanded: true,
+      decoration: InputDecoration(
+        labelText: 'Flax Size',
+        hintText: 'Select size',
+        prefixIcon: const Icon(Icons.straighten_outlined, size: 20),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        contentPadding: const EdgeInsets.symmetric(
+          vertical: 12,
+          horizontal: 12,
         ),
-        const SizedBox(width: 12),
-        if (_isAdmin)
-        FilledButton.icon(
-          onPressed: _addFlax,
-          icon: const Icon(
-            Icons.add,
-            size: 18,
-          ),
-          label: const Text('Add New Flax'),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF1D5CFF),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-          ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(
-          onPressed: _showFilterMenu,
-          icon: const Icon(
-            Icons.filter_alt_outlined,
-            size: 18,
-          ),
-          label: const Text('Filter'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF334155),
-            side: const BorderSide(
-              color: Color(0xFFE2E8F0),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
-          ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
         ),
-        const SizedBox(width: 8),
-        OutlinedButton.icon(
-          onPressed: _onReset,
-          icon: const Icon(
-            Icons.refresh,
-            size: 18,
-          ),
-          label: const Text('Reset'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF334155),
-            side: const BorderSide(
-              color: Color(0xFFE2E8F0),
-            ),
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+      ),
+      items: [
+        const DropdownMenuItem<String>(
+          value: 'All',
+          child: Text('All Sizes', overflow: TextOverflow.ellipsis),
+        ),
+        ..._flaxSizes.map(
+          (size) => DropdownMenuItem<String>(
+            value: size,
+            child: Text(size),
           ),
         ),
       ],
+      onChanged: _loadingAllFlaxes ? null : _onSizeChanged,
+    );
+
+    final addButton = FilledButton.icon(
+      onPressed: _addFlax,
+      icon: const Icon(Icons.add, size: 18),
+      label: const Text('Add New Flax'),
+      style: FilledButton.styleFrom(
+        backgroundColor: const Color(0xFF1D5CFF),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
+
+    final filterButton = OutlinedButton.icon(
+      onPressed: _showFilterMenu,
+      icon: const Icon(Icons.filter_alt_outlined, size: 18),
+      label: const Text('Filter'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF334155),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
+
+    final resetButton = OutlinedButton.icon(
+      onPressed: _onReset,
+      icon: const Icon(Icons.refresh, size: 18),
+      label: const Text('Reset'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: const Color(0xFF334155),
+        side: const BorderSide(color: Color(0xFFE2E8F0)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      ),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        if (width < 560) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              dropdown,
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (_isAdmin) addButton,
+                  filterButton,
+                  resetButton,
+                ],
+              ),
+            ],
+          );
+        }
+
+        if (width < 920) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              dropdown,
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    if (_isAdmin) addButton,
+                    filterButton,
+                    resetButton,
+                  ],
+                ),
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          children: [
+            Expanded(child: dropdown),
+            const SizedBox(width: 12),
+            if (_isAdmin) addButton,
+            const SizedBox(width: 8),
+            filterButton,
+            const SizedBox(width: 8),
+            resetButton,
+          ],
+        );
+      },
     );
   }
 
@@ -1005,75 +1078,94 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
     2, // Condition
     2, // Created
     3, // Remarks
-    2, // Action
+    3, // Action
   ];
 
   Widget _buildTableArea() {
     if (_loading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_error != null) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text('Error: $_error'),
-            const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: () => _loadPage(),
-              icon: const Icon(Icons.refresh),
-              label: const Text('Retry'),
-            ),
-          ],
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 44, color: Colors.red),
+              const SizedBox(height: 10),
+              Text(
+                'Error: $_error',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () => _loadPage(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
         ),
       );
     }
 
     final displayed = _displayedFlaxes;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _buildTableHeaderRow(),
-        const Divider(height: 1),
-        Expanded(
-          child: displayed.isEmpty
-              ? Center(
-                  child: Text(
-                    _loadingAllFlaxes
-                        ? 'Loading all flaxes...'
-                        : 'No matching flaxes',
-                    style: const TextStyle(
-                      color: Colors.grey,
-                    ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The table deliberately has a minimum readable width. On phones,
+        // users can swipe horizontally rather than getting clipped/overflowed.
+        final tableWidth = constraints.maxWidth < 980
+            ? 980.0
+            : constraints.maxWidth;
+
+        return Scrollbar(
+          thumbVisibility: constraints.maxWidth < tableWidth,
+          notificationPredicate: (notification) =>
+              notification.metrics.axis == Axis.horizontal,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: SizedBox(
+              width: tableWidth,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildTableHeaderRow(),
+                  const Divider(height: 1),
+                  Expanded(
+                    child: displayed.isEmpty
+                        ? Center(
+                            child: Text(
+                              _loadingAllFlaxes
+                                  ? 'Loading all flaxes...'
+                                  : 'No matching flaxes',
+                              style: const TextStyle(color: Colors.grey),
+                            ),
+                          )
+                        : ListView.separated(
+                            itemCount: displayed.length,
+                            separatorBuilder: (context, index) =>
+                                const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final pageSize = _pageSize ?? 50;
+                              final slNo =
+                                  ((_currentPage - 1) * pageSize) + index + 1;
+
+                              return _buildTableDataRow(
+                                displayed[index],
+                                slNo,
+                              );
+                            },
+                          ),
                   ),
-                )
-              : ListView.separated(
-                  itemCount: displayed.length,
-                  separatorBuilder: (context, index) =>
-                      const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final pageSize = _pageSize ?? 50;
-
-                    final slNo = _hasFrontendFilter
-                        ? ((_currentPage - 1) * pageSize) +
-                            index +
-                            1
-                        : ((_currentPage - 1) * pageSize) +
-                            index +
-                            1;
-
-                    return _buildTableDataRow(
-                      displayed[index],
-                      slNo,
-                    );
-                  },
-                ),
-        ),
-      ],
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1267,58 +1359,50 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
     }
 
     final pageSize = _pageSize ?? 50;
-
-    final total = _hasFrontendFilter
-        ? _filteredTotalCount
-        : _totalCount;
-
+    final total = _hasFrontendFilter ? _filteredTotalCount : _totalCount;
     final maxPage = _hasFrontendFilter
         ? _filteredPageCount
         : (_totalCount == 0
             ? 1
-            : ((_totalCount + pageSize - 1) / pageSize)
-                .ceil());
+            : ((_totalCount + pageSize - 1) / pageSize).ceil());
 
     final displayedCount = _displayedFlaxes.length;
-
-    final start = total == 0
-        ? 0
-        : ((_currentPage - 1) * pageSize) + 1;
-
+    final start = total == 0 ? 0 : ((_currentPage - 1) * pageSize) + 1;
     final end = total == 0
         ? 0
-        : (start + displayedCount - 1)
-            .clamp(0, total);
+        : (start + displayedCount - 1).clamp(0, total);
 
     final canGoPrevious = _hasFrontendFilter
         ? _currentPage > 1
         : _previousUrl != null;
-
     final canGoNext = _hasFrontendFilter
         ? _currentPage < maxPage
         : _nextUrl != null;
 
-    return Row(
-      mainAxisAlignment:
-          MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 600;
+
+        final summary = Text(
           _hasFrontendFilter
               ? 'Showing $start to $end of $total filtered entries'
               : 'Showing $start to $end of $_totalCount entries',
+          maxLines: compact ? 2 : 1,
+          overflow: TextOverflow.ellipsis,
           style: const TextStyle(
             fontSize: 12.5,
             color: Colors.grey,
           ),
-        ),
-        Row(
+        );
+
+        final controls = Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             IconButton(
-              onPressed:
-                  canGoPrevious ? _goPrevious : null,
-              icon: const Icon(
-                Icons.chevron_left,
-              ),
+              tooltip: 'Previous page',
+              onPressed: canGoPrevious ? _goPrevious : null,
+              icon: const Icon(Icons.chevron_left),
+              visualDensity: VisualDensity.compact,
             ),
             Container(
               width: 32,
@@ -1326,8 +1410,7 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: const Color(0xFF1D5CFF),
-                borderRadius:
-                    BorderRadius.circular(6),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: Text(
                 '$_currentPage',
@@ -1338,15 +1421,37 @@ bool get _isAdmin => _currentUser?.isAdmin == true;
               ),
             ),
             IconButton(
-              onPressed:
-                  canGoNext ? _goNext : null,
-              icon: const Icon(
-                Icons.chevron_right,
-              ),
+              tooltip: 'Next page',
+              onPressed: canGoNext ? _goNext : null,
+              icon: const Icon(Icons.chevron_right),
+              visualDensity: VisualDensity.compact,
             ),
           ],
-        ),
-      ],
+        );
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              summary,
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerRight,
+                child: controls,
+              ),
+            ],
+          );
+        }
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Flexible(child: summary),
+            const SizedBox(width: 12),
+            controls,
+          ],
+        );
+      },
     );
   }
 }

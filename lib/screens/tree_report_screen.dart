@@ -100,6 +100,7 @@ class TreeReportScreenState extends State<TreeReportScreen> {
 
   final TextEditingController _fromDateController = TextEditingController();
   final TextEditingController _toDateController = TextEditingController();
+  final ScrollController _tableScrollController = ScrollController();
 
   @override
   void initState() {
@@ -109,6 +110,7 @@ class TreeReportScreenState extends State<TreeReportScreen> {
 
   @override
   void dispose() {
+    _tableScrollController.dispose();
     _fromDateController.dispose();
     _toDateController.dispose();
     super.dispose();
@@ -1125,6 +1127,9 @@ class TreeReportScreenState extends State<TreeReportScreen> {
           const Divider(height: 1, color: Color(0xFFE6EDF4)),
           Expanded(
             child: ListView.separated(
+              primary: false,
+               controller: _tableScrollController,
+               physics: const ClampingScrollPhysics(),
               itemCount: rows.length,
               separatorBuilder: (_, __) =>
                   const Divider(height: 1, color: Color(0xFFE8EEF5)),

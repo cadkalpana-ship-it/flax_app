@@ -11,7 +11,8 @@ import 'package:flax_app/models/app_user.dart';
 import '../models/flax.dart';
 
 class ApiService {
-  static const String baseUrl = 'https://flax-tracker-backend.onrender.com/api';
+  // static const String baseUrl = 'https://flax-tracker-backend.onrender.com/api';
+  static const String baseUrl = 'http://192.168.1.183:8000/api';
 
   // ============================================================
   // AUTHENTICATION

@@ -565,52 +565,66 @@ print('in initstate');
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFF3F6FD),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          14,
-          10,
-          14,
-          14,
-        ),
-        child: Column(
-          children: [
-            _buildHeader(),
+      child: LayoutBuilder(
+        builder: (context, viewport) {
+          final isMobile = viewport.maxWidth < 800;
 
-            const SizedBox(height: 10),
+          // On phones/tablets, the whole page must scroll naturally.
+          // Do not use Expanded for the pending/submitted panels here:
+          // their internal table bodies need a real, positive height.
+          if (isMobile) {
+            return ListView(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 20),
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 10),
+                _buildEntryPanel(),
+                const SizedBox(height: 10),
+                SizedBox(
+                  // The table contains its own Expanded body.
+                  // Give it enough room for the title, column header,
+                  // empty state and footer so Flutter never overflows.
+                  height: 255,
+                  child: _buildTable(),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 430,
+                  child: _buildSubmittedPanel(),
+                ),
+              ],
+            );
+          }
 
-            // --------------------------------------------------
-            // FULL WIDTH ENTRY FORM
-            // --------------------------------------------------
-
-            _buildEntryPanel(),
-
-            const SizedBox(height: 10),
-
-            // --------------------------------------------------
-            // PENDING + SUBMITTED
-            // --------------------------------------------------
-
-            Expanded(
-              child: Row(
-                crossAxisAlignment:
-                    CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: _buildTable(),
+          // Desktop keeps the efficient side-by-side layout.
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+            child: Column(
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 10),
+                _buildEntryPanel(),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        flex: 3,
+                        child: _buildTable(),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        flex: 6,
+                        child: _buildSubmittedPanel(),
+                      ),
+                    ],
                   ),
-
-                  const SizedBox(width: 10),
-
-                  Expanded(
-                    flex: 6,
-                    child: _buildSubmittedPanel(),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          );
+        },
       ),
     );
   }
@@ -651,27 +665,33 @@ print('in initstate');
 
           const SizedBox(width: 9),
 
-          const Column(
-            crossAxisAlignment:
-                CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Tree Module Details',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w700,
-                  fontSize: 15,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  'Tree Module Details',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                  ),
                 ),
-              ),
-              SizedBox(height: 1),
-              Text(
-                'Enter tree, style, bag and metal information',
-                style: TextStyle(
-                  color: Color(0xFFD7E4FF),
-                  fontSize: 9.5,
+                SizedBox(height: 1),
+                Text(
+                  'Enter tree, style, bag and metal information',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Color(0xFFD7E4FF),
+                    fontSize: 9.5,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

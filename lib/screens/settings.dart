@@ -147,22 +147,22 @@ class SettingsScreenState extends State<SettingsScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 640;
+
+        return Padding(
+          padding: EdgeInsets.all(isMobile ? 16 : 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Expanded(
-                child: Text(
+              if (isMobile) ...[
+                const Text(
                   'Users',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
                 ),
-              ),
-              SizedBox(
-                width: 240,
-                child: TextField(
+                const SizedBox(height: 12),
+                TextField(
                   controller: _searchController,
                   decoration: const InputDecoration(
                     hintText: 'Search users...',
@@ -172,19 +172,51 @@ class SettingsScreenState extends State<SettingsScreen> {
                   ),
                   onSubmitted: (_) => _load(),
                 ),
-              ),
-              const SizedBox(width: 12),
-              FilledButton.icon(
-                onPressed: _addUser,
-                icon: const Icon(Icons.person_add_alt_1_outlined),
-                label: const Text('Add User'),
-              ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: _addUser,
+                    icon: const Icon(Icons.person_add_alt_1_outlined),
+                    label: const Text('Add User'),
+                  ),
+                ),
+              ] else
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'Users',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 240,
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: const InputDecoration(
+                          hintText: 'Search users...',
+                          prefixIcon: Icon(Icons.search, size: 18),
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                        onSubmitted: (_) => _load(),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton.icon(
+                      onPressed: _addUser,
+                      icon: const Icon(Icons.person_add_alt_1_outlined),
+                      label: const Text('Add User'),
+                    ),
+                  ],
+                ),
+              const SizedBox(height: 20),
+              Expanded(child: _buildBody()),
             ],
           ),
-          const SizedBox(height: 20),
-          Expanded(child: _buildBody()),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -230,10 +262,16 @@ class SettingsScreenState extends State<SettingsScreen> {
               size: 18,
             ),
           ),
-          title: Text(user.name.isNotEmpty ? user.name : user.username),
+          title: Text(
+            user.name.isNotEmpty ? user.name : user.username,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           subtitle: Text(
             '@${user.username} · ${user.isAdmin ? "Admin" : "User"}'
             '${user.isActive ? "" : " · Inactive"}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           trailing: Row(
             mainAxisSize: MainAxisSize.min,

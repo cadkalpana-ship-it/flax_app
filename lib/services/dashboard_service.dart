@@ -4,8 +4,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class DashboardService {
-  static const String baseUrl =
-      'https://flax-tracker-backend.onrender.com/api';
+  // static const String baseUrl = 'https://flax-tracker-backend.onrender.com/api';
+  static const String baseUrl = 'http://192.168.1.183:8000/api';
 
   // ============================================================
   // AUTHENTICATION

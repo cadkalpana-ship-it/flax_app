@@ -920,23 +920,49 @@ class FlaxReleaseState extends State<FlaxRelease> {
       return _buildErrorState();
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(
-          flex: 7,
-          child: _buildAssignedListCard(),
-        ),
-        const SizedBox(
-          width: 12,
-        ),
-        Expanded(
-          flex: 4,
-          child: _buildDetailsCard(),
-        ),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+
+        // On phones and tablets the details area should have natural height
+        // instead of being squeezed into a fixed fraction of the viewport.
+        // That was the source of the clipped Tunch Report shown on screen.
+        if (width < 900) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SizedBox(
+                  height: width < 600 ? 390 : 450,
+                  child: _buildAssignedListCard(),
+                ),
+                const SizedBox(height: 14),
+                _buildDetailsCard(compact: width < 600),
+              ],
+            ),
+          );
+        }
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 7,
+              child: _buildAssignedListCard(),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              flex: 5,
+              child: _buildDetailsCard(),
+            ),
+          ],
+        );
+      },
     );
   }
+
+
 
   // ============================================================
   // HEADER
@@ -1394,12 +1420,16 @@ class FlaxReleaseState extends State<FlaxRelease> {
         const SizedBox(
           width: 10,
         ),
-        const Text(
-          'Assigned FLX List',
-          style: TextStyle(
-            fontSize: 15.5,
-            fontWeight: FontWeight.w800,
-            color: Color(0xFF193E68),
+        const Flexible(
+          child: Text(
+            'Assigned FLX List',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 15.5,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF193E68),
+            ),
           ),
         ),
         const Spacer(),
@@ -1512,6 +1542,9 @@ class FlaxReleaseState extends State<FlaxRelease> {
               flex: flexes[index],
               child: Text(
                 headers[index],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                softWrap: false,
                 style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w800,
@@ -1562,6 +1595,8 @@ class FlaxReleaseState extends State<FlaxRelease> {
               flex: flexes[0],
               child: Text(
                 '$slNo',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11.5,
                 ),
@@ -1571,6 +1606,8 @@ class FlaxReleaseState extends State<FlaxRelease> {
               flex: flexes[1],
               child: Text(
                 flax.flaxNo,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
@@ -1582,6 +1619,8 @@ class FlaxReleaseState extends State<FlaxRelease> {
               flex: flexes[2],
               child: Text(
                 flax.flaxSize,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11.5,
                 ),
@@ -1593,6 +1632,8 @@ class FlaxReleaseState extends State<FlaxRelease> {
                 _text(
                   flax.treeNo,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11.5,
                 ),
@@ -1602,6 +1643,8 @@ class FlaxReleaseState extends State<FlaxRelease> {
               flex: flexes[4],
               child: Text(
                 _castingDate(flax),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   fontSize: 11.5,
                 ),
@@ -1773,65 +1816,160 @@ class FlaxReleaseState extends State<FlaxRelease> {
   // DETAILS CARD
   // ============================================================
 
-  Widget _buildDetailsCard() {
+  Widget _buildDetailsCard({
+    bool compact = false,
+  }) {
+    final selected = _selectedFlax;
+
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          _buildDetailsHeader(
+            compact: compact,
+            hasSelection: selected != null,
+          ),
+          const SizedBox(height: 14),
+          if (selected == null)
+            _buildDetailsEmptyState()
+          else ...[
+            _buildSelectedSummary(compact: compact),
+            const SizedBox(height: 12),
+            _buildSelectedFlaxBox(compact: compact),
+            const SizedBox(height: 12),
+            _buildTunchReportSection(compact: compact),
+            const SizedBox(height: 12),
+            _buildReleaseNote(compact: compact),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDetailsHeader({
+    required bool compact,
+    required bool hasSelection,
+  }) {
+    return Row(
+      children: [
+        Container(
+          width: compact ? 36 : 40,
+          height: compact ? 36 : 40,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: const Color(0xFFE4F0FF),
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: const Icon(
+            Icons.account_tree_outlined,
+            color: Color(0xFF174A8B),
+            size: 21,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 34,
-                height: 34,
-                alignment: Alignment.center,
-                decoration: const BoxDecoration(
-                  color: Color(0xFFE4F0FF),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(
-                  Icons.account_tree,
-                  color: Color(0xFF174A8B),
-                  size: 20,
+              Text(
+                'Tree Casting Details',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: compact ? 15 : 16,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF193E68),
                 ),
               ),
-              const SizedBox(
-                width: 9,
-              ),
-              const Expanded(
-                child: Text(
-                  'Tree Casting Details',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF193E68),
-                  ),
+              const SizedBox(height: 2),
+              Text(
+                hasSelection
+                    ? 'Review the selected FLX before release'
+                    : 'Select an assigned FLX to continue',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  color: Color(0xFF71859A),
                 ),
               ),
             ],
           ),
-          const SizedBox(
-            height: 14,
+        ),
+        const SizedBox(width: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 5,
           ),
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildSelectedSummary(),
-                  const SizedBox(
-                    height: 14,
-                  ),
-                  _buildSelectedFlaxBox(),
-                  const SizedBox(
-                    height: 14,
-                  ),
-                  _buildTunchReportSection(),
-                  const SizedBox(
-                    height: 14,
-                  ),
-                  _buildReleaseNote(),
-                ],
-              ),
+          decoration: BoxDecoration(
+            color: hasSelection
+                ? const Color(0xFFEAF7EF)
+                : const Color(0xFFF1F5F9),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            hasSelection ? 'SELECTED' : 'WAITING',
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w800,
+              color: hasSelection
+                  ? const Color(0xFF198754)
+                  : const Color(0xFF64748B),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailsEmptyState() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: 18,
+        vertical: 24,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFD),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFE1EAF3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 52,
+            height: 52,
+            alignment: Alignment.center,
+            decoration: const BoxDecoration(
+              color: Color(0xFFEAF2FF),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.touch_app_outlined,
+              color: Color(0xFF1D5CFF),
+              size: 25,
+            ),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'No FLX selected',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF29496D),
+            ),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Select an assigned FLX from the list to view its tree, casting information and release report.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 11,
+              height: 1.4,
+              color: Color(0xFF71859A),
             ),
           ),
         ],
@@ -1839,11 +1977,13 @@ class FlaxReleaseState extends State<FlaxRelease> {
     );
   }
 
+
+
   // ============================================================
   // SELECTED SUMMARY
   // ============================================================
 
-  Widget _buildSelectedSummary() {
+  Widget _buildSelectedSummary({bool compact = false}) {
     final flax = _selectedFlax;
 
     final treeNo = _selectedTreeNo ?? flax?.treeNo ?? '-';
@@ -1852,50 +1992,57 @@ class FlaxReleaseState extends State<FlaxRelease> {
 
     final castingDate = flax == null ? '-' : _castingDate(flax);
 
-    return Column(
-      children: [
-        Row(
+    final fields = [
+      _detailField(label: 'Tree Number', value: treeNo),
+      _detailField(label: 'FLX Name', value: flaxNo),
+      _detailField(label: 'Casting Date', value: castingDate),
+      _detailField(
+        label: 'Status',
+        value: flax == null ? '-' : 'Assigned',
+      ),
+    ];
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= (compact ? 430 : 380);
+
+        if (!twoColumns) {
+          return Column(
+            children: [
+              fields[0],
+              const SizedBox(height: 8),
+              fields[1],
+              const SizedBox(height: 8),
+              fields[2],
+              const SizedBox(height: 8),
+              fields[3],
+            ],
+          );
+        }
+
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
           children: [
-            Expanded(
-              child: _detailField(
-                label: 'Tree Number',
-                value: treeNo,
-              ),
+            SizedBox(
+              width: (constraints.maxWidth - 8) / 2,
+              child: fields[0],
             ),
-            const SizedBox(
-              width: 10,
+            SizedBox(
+              width: (constraints.maxWidth - 8) / 2,
+              child: fields[1],
             ),
-            Expanded(
-              child: _detailField(
-                label: 'FLX Name',
-                value: flaxNo,
-              ),
+            SizedBox(
+              width: (constraints.maxWidth - 8) / 2,
+              child: fields[2],
+            ),
+            SizedBox(
+              width: (constraints.maxWidth - 8) / 2,
+              child: fields[3],
             ),
           ],
-        ),
-        const SizedBox(
-          height: 10,
-        ),
-        Row(
-          children: [
-            Expanded(
-              child: _detailField(
-                label: 'Casting Date',
-                value: castingDate,
-              ),
-            ),
-            const SizedBox(
-              width: 10,
-            ),
-            Expanded(
-              child: _detailField(
-                label: 'Status',
-                value: flax == null ? '-' : 'Assigned',
-              ),
-            ),
-          ],
-        ),
-      ],
+        );
+      },
     );
   }
 
@@ -1908,38 +2055,41 @@ class FlaxReleaseState extends State<FlaxRelease> {
     required String value,
   }) {
     return Container(
-      height: 48,
+      constraints: const BoxConstraints(minHeight: 52),
       padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 7,
+        horizontal: 11,
+        vertical: 8,
       ),
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFD),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: const Color(0xFFE0E8F1),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            label,
+            label.toUpperCase(),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 9.5,
-              color: Color(0xFF62778F),
+              fontSize: 8.5,
+              fontWeight: FontWeight.w700,
+              letterSpacing: .3,
+              color: Color(0xFF71859A),
             ),
           ),
-          const SizedBox(
-            height: 2,
-          ),
+          const SizedBox(height: 4),
           Text(
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
               color: Color(0xFF29496D),
             ),
           ),
@@ -1952,107 +2102,102 @@ class FlaxReleaseState extends State<FlaxRelease> {
   // SELECTED FLX
   // ============================================================
 
-  Widget _buildSelectedFlaxBox() {
-    final flax = _selectedFlax;
-
-    if (flax == null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(
-          18,
-        ),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FAFD),
-          borderRadius: BorderRadius.circular(
-            8,
-          ),
-          border: Border.all(
-            color: const Color(0xFFE1EAF3),
-          ),
-        ),
-        child: const Center(
-          child: Text(
-            'Select a Tree Number and FLX Name to view details.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF73879A),
-              fontSize: 11.5,
-            ),
-          ),
-        ),
-      );
-    }
+  Widget _buildSelectedFlaxBox({
+    bool compact = false,
+  }) {
+    final flax = _selectedFlax!;
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(
-        14,
-      ),
+      padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFD),
-        borderRadius: BorderRadius.circular(8),
+        gradient: const LinearGradient(
+          colors: [
+            Color(0xFFF8FBFF),
+            Color(0xFFF2F7FF),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFFE1EAF3),
+          color: const Color(0xFFD8E7F7),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Selected FLX',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF24476C),
-            ),
-          ),
-          const SizedBox(
-            height: 10,
-          ),
           Row(
             children: [
-              Expanded(
-                child: _miniDetail(
-                  'FLX Name',
-                  flax.flaxNo,
-                ),
+              const Icon(
+                Icons.inventory_2_outlined,
+                size: 17,
+                color: Color(0xFF1D5CFF),
               ),
-              const SizedBox(
-                width: 10,
-              ),
-              Expanded(
-                child: _miniDetail(
-                  'FLX Size',
-                  flax.flaxSize,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(
-            height: 10,
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: _miniDetail(
-                  'Tree Number',
-                  _text(
-                    flax.treeNo,
+              const SizedBox(width: 7),
+              const Expanded(
+                child: Text(
+                  'Selected FLX',
+                  style: TextStyle(
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF24476C),
                   ),
                 ),
               ),
-              const SizedBox(
-                width: 10,
-              ),
-              Expanded(
-                child: _miniDetail(
-                  'Design',
-                  _text(
-                    flax.designName,
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE5F0FF),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Text(
+                  'READY',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF1D5CFF),
                   ),
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 11),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = constraints.maxWidth >= 360;
+              final items = [
+                _miniDetail('FLX Name', flax.flaxNo),
+                _miniDetail('FLX Size', flax.flaxSize),
+                _miniDetail('Tree Number', _text(flax.treeNo)),
+                _miniDetail('Design', _text(flax.designName)),
+              ];
+
+              if (!twoColumns) {
+                return Column(
+                  children: [
+                    for (int i = 0; i < items.length; i++) ...[
+                      items[i],
+                      if (i != items.length - 1)
+                        const SizedBox(height: 8),
+                    ],
+                  ],
+                );
+              }
+
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final item in items)
+                    SizedBox(
+                      width: (constraints.maxWidth - 8) / 2,
+                      child: item,
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -2063,44 +2208,14 @@ class FlaxReleaseState extends State<FlaxRelease> {
     String label,
     String value,
   ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 9.5,
-            color: Color(0xFF73879A),
-          ),
-        ),
-        const SizedBox(
-          height: 3,
-        ),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            fontSize: 11.5,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFF29496D),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ============================================================
-  // TUNCH REPORT + IMAGE (required before release)
-  // ============================================================
-
-  Widget _buildTunchReportSection() {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(
+        horizontal: 9,
+        vertical: 8,
+      ),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFD),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(7),
         border: Border.all(
           color: const Color(0xFFE1EAF3),
         ),
@@ -2108,51 +2223,201 @@ class FlaxReleaseState extends State<FlaxRelease> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Tunch Report (required before release)',
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF24476C),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 8.5,
+              color: Color(0xFF73879A),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF29496D),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ============================================================
+  // TUNCH REPORT + IMAGE (required before release)
+  // ============================================================
+
+  Widget _buildTunchReportSection({
+    bool compact = false,
+  }) {
+    final complete = _topTunchController.text.trim().isNotEmpty &&
+        _bottomTunchController.text.trim().isNotEmpty &&
+        _releaseImages.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 12 : 14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF2),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFFF1DFC0),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: _tunchField(
-                  label: 'Top Tunch Report',
-                  controller: _topTunchController,
+              Container(
+                width: 32,
+                height: 32,
+                alignment: Alignment.center,
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFFEBC8),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.assignment_outlined,
+                  size: 17,
+                  color: Color(0xFF9A6410),
                 ),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _tunchField(
-                  label: 'Bottom Tunch Report',
-                  controller: _bottomTunchController,
+              const SizedBox(width: 9),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Tunch Report',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF6D4B16),
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Required before releasing this FLX',
+                      style: TextStyle(
+                        fontSize: 9.5,
+                        color: Color(0xFF8A6A36),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 7,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: complete
+                      ? const Color(0xFFE7F6EC)
+                      : const Color(0xFFFFF1D9),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  complete ? 'COMPLETE' : 'REQUIRED',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w800,
+                    color: complete
+                        ? const Color(0xFF198754)
+                        : const Color(0xFF9A6410),
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final twoColumns = constraints.maxWidth >= 380;
+
+              final top = _tunchField(
+                label: 'Top Tunch',
+                controller: _topTunchController,
+              );
+              final bottom = _tunchField(
+                label: 'Bottom Tunch',
+                controller: _bottomTunchController,
+              );
+
+              if (!twoColumns) {
+                return Column(
+                  children: [
+                    top,
+                    const SizedBox(height: 9),
+                    bottom,
+                  ],
+                );
+              }
+
+              return Row(
+                children: [
+                  Expanded(child: top),
+                  const SizedBox(width: 9),
+                  Expanded(child: bottom),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 11),
+          OutlinedButton.icon(
+            onPressed: _pickReleaseImages,
+            style: OutlinedButton.styleFrom(
+              minimumSize: const Size.fromHeight(40),
+              side: const BorderSide(
+                color: Color(0xFFE1C991),
+              ),
+              foregroundColor: const Color(0xFF805711),
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            icon: const Icon(
+              Icons.add_photo_alternate_outlined,
+              size: 18,
+            ),
+            label: Text(
+              _releaseImages.isEmpty
+                  ? 'Attach Tunch Image(s)'
+                  : 'Add More Images',
+            ),
+          ),
+          const SizedBox(height: 7),
           Row(
             children: [
-              OutlinedButton.icon(
-                onPressed: _pickReleaseImages,
-                icon: const Icon(
-                  Icons.add_photo_alternate_outlined,
-                  size: 17,
-                ),
-                label: const Text('Add Image(s)'),
-              ),
-              const SizedBox(width: 10),
-              Text(
+              Icon(
                 _releaseImages.isEmpty
-                    ? 'No images attached yet'
-                    : '${_releaseImages.length} image(s) attached',
-                style: const TextStyle(
-                  fontSize: 11,
-                  color: Color(0xFF657A90),
+                    ? Icons.info_outline
+                    : Icons.check_circle_outline,
+                size: 14,
+                color: _releaseImages.isEmpty
+                    ? const Color(0xFF9A6410)
+                    : const Color(0xFF198754),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  _releaseImages.isEmpty
+                      ? 'At least one image is required.'
+                      : '${_releaseImages.length} image(s) attached',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    color: _releaseImages.isEmpty
+                        ? const Color(0xFF8A6A36)
+                        : const Color(0xFF3E7552),
+                  ),
                 ),
               ),
             ],
@@ -2160,7 +2425,7 @@ class FlaxReleaseState extends State<FlaxRelease> {
           if (_releaseImages.isNotEmpty) ...[
             const SizedBox(height: 10),
             SizedBox(
-              height: 64,
+              height: 70,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 itemCount: _releaseImages.length,
@@ -2172,30 +2437,34 @@ class FlaxReleaseState extends State<FlaxRelease> {
                     clipBehavior: Clip.none,
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(8),
                         child: Image.memory(
                           image.bytes,
-                          width: 64,
-                          height: 64,
+                          width: 70,
+                          height: 70,
                           fit: BoxFit.cover,
                         ),
                       ),
                       Positioned(
-                        top: -6,
-                        right: -6,
-                        child: GestureDetector(
-                          onTap: () => _removeReleaseImage(index),
-                          child: Container(
-                            width: 20,
-                            height: 20,
-                            decoration: const BoxDecoration(
-                              color: Colors.black54,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 13,
-                              color: Colors.white,
+                        top: -5,
+                        right: -5,
+                        child: Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () => _removeReleaseImage(index),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              width: 22,
+                              height: 22,
+                              decoration: const BoxDecoration(
+                                color: Color(0xFF334155),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.close,
+                                size: 13,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ),
@@ -2265,78 +2534,50 @@ class FlaxReleaseState extends State<FlaxRelease> {
   // NOTE
   // ============================================================
 
-  Widget _buildReleaseNote() {
+  Widget _buildReleaseNote({
+    bool compact = false,
+  }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(compact ? 11 : 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFEAF4FF),
-        borderRadius: BorderRadius.circular(7),
+        color: const Color(0xFFF1F7FF),
+        borderRadius: BorderRadius.circular(9),
         border: Border.all(
-          color: const Color(0xFFD5E8FA),
+          color: const Color(0xFFD7E8FA),
         ),
       ),
-      child: const Column(
+      child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 17,
-                color: Color(0xFF174A8B),
-              ),
-              SizedBox(
-                width: 7,
-              ),
-              Text(
-                'Release Workflow',
-                style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF174A8B),
+          const Icon(
+            Icons.info_outline,
+            size: 18,
+            color: Color(0xFF174A8B),
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Release checklist',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF174A8B),
+                  ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(
-            height: 7,
-          ),
-          Text(
-            '• Tree Number shows only trees with currently assigned FLX.',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: Color(0xFF52708F),
-            ),
-          ),
-          SizedBox(
-            height: 4,
-          ),
-          Text(
-            '• FLX Name is filtered automatically by the selected tree.',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: Color(0xFF52708F),
-            ),
-          ),
-          SizedBox(
-            height: 4,
-          ),
-          Text(
-            '• The list below always shows every currently assigned FLX — picking a Tree/FLX above only decides what gets released, it does not filter this list.',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: Color(0xFF52708F),
-            ),
-          ),
-          SizedBox(
-            height: 4,
-          ),
-          Text(
-            '• Release changes the FLX to Available and marks the process as Released.',
-            style: TextStyle(
-              fontSize: 10.5,
-              color: Color(0xFF52708F),
+                SizedBox(height: 4),
+                Text(
+                  'Confirm the Tree, FLX, Tunch readings and attached image(s) before releasing.',
+                  style: TextStyle(
+                    fontSize: 9.5,
+                    height: 1.35,
+                    color: Color(0xFF52708F),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2406,10 +2647,13 @@ class FlaxReleaseState extends State<FlaxRelease> {
   Widget _card({
     required Widget child,
   }) {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      padding: const EdgeInsets.all(18),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final padding = constraints.maxWidth < 420 ? 13.0 : 18.0;
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(padding),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(
@@ -2428,7 +2672,9 @@ class FlaxReleaseState extends State<FlaxRelease> {
           ),
         ],
       ),
-      child: child,
+          child: child,
+        );
+      },
     );
   }
 }
